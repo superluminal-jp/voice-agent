@@ -12,6 +12,9 @@ A minimalistic web interface for OpenAI's GPT Realtime API, featuring real-time 
 - 📱 **Responsive Design** - Works on desktop and mobile
 - ⚙️ **Customizable System Prompts** - Edit AI behavior and personality
 - 🗑️ **Conversation Management** - Clear history and toggle visibility
+- 🔊 **System Audio Capture** - Connect audio from Zoom, Teams, and other apps
+- 🎚️ **Audio Device Selection** - Choose microphone and speaker devices
+- 🖥️ **Screen Sharing Audio** - Capture system audio via browser screen sharing
 
 ## Tech Stack
 
@@ -58,6 +61,23 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 4. **Customize Behavior** - Click "System Prompt" to edit the AI's personality and instructions
 5. **Manage History** - Toggle conversation visibility and clear history as needed
 6. **Disconnect** - Click "Disconnect" to end the session
+
+### System Audio Integration
+
+Connect audio from apps like Zoom, Teams, Discord, and more:
+
+1. **Quick Setup (Browser Screen Sharing)**
+   - Click "Audio Settings" button
+   - In "System Audio Capture" section, click "Start Capture"
+   - Select your screen/window and check "Share system audio"
+   - The Voice Agent will now capture all system audio
+
+2. **Advanced Setup (Virtual Audio Cables)**
+   - Install virtual audio software (VB-Cable, BlackHole, etc.)
+   - Select virtual device in Audio Settings
+   - Route app audio through virtual cables for better control
+
+📖 **See [SYSTEM_AUDIO_SETUP.md](./SYSTEM_AUDIO_SETUP.md) for detailed setup instructions and troubleshooting.**
 
 ## Architecture
 
