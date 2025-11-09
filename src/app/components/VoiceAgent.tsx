@@ -51,6 +51,29 @@ import {
   Info,
 } from "lucide-react";
 
+// VAD Configuration Types
+type VadMode = "conservative" | "balanced" | "responsive";
+
+// VAD Presets
+const VAD_PRESETS = {
+  conservative: {
+    type: "semantic_vad" as const,
+    eagerness: "low" as const,
+  },
+  balanced: {
+    type: "server_vad" as const,
+    threshold: 0.6,
+    silence_duration_ms: 800,
+    prefix_padding_ms: 300,
+  },
+  responsive: {
+    type: "server_vad" as const,
+    threshold: 0.5,
+    silence_duration_ms: 500,
+    prefix_padding_ms: 300,
+  },
+} as const;
+
 export default function VoiceAgent() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -78,6 +101,8 @@ export default function VoiceAgent() {
   const [mixedAudioStream, setMixedAudioStream] = useState<MediaStream | null>(
     null
   );
+  const [vadMode, setVadMode] = useState<VadMode>("conservative");
+  const [isListening, setIsListening] = useState(false);
   const sessionRef = useRef<RealtimeSession | null>(null);
   const agentRef = useRef<RealtimeAgent | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -373,11 +398,20 @@ export default function VoiceAgent() {
         instructions: systemPrompt,
       });
 
-      // Get microphone stream with device constraints
+      // Get microphone stream with device constraints and audio preprocessing
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: selectedMicrophone
-          ? { deviceId: { exact: selectedMicrophone } }
-          : true,
+          ? {
+              deviceId: { exact: selectedMicrophone },
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            }
+          : {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
       });
 
       // Store microphone stream reference for cleanup
@@ -398,10 +432,17 @@ export default function VoiceAgent() {
         mediaStream: finalStream,
       });
 
-      // Create session with custom transport
+      // Create session with custom transport and VAD configuration
       const session = new RealtimeSession(agent, {
         model: "gpt-realtime",
         transport: transport,
+        config: {
+          audio: {
+            input: {
+              turnDetection: VAD_PRESETS[vadMode],
+            },
+          },
+        },
       });
 
       await session.connect({ apiKey: ephemeralKey });
@@ -420,6 +461,15 @@ export default function VoiceAgent() {
             }
           }
         }, 100);
+      });
+
+      // Set up speech detection listeners for visual feedback
+      (session as any).on("input_audio_buffer.speech_started", () => {
+        setIsListening(true);
+      });
+
+      (session as any).on("input_audio_buffer.speech_stopped", () => {
+        setIsListening(false);
       });
 
       // Store references
@@ -500,6 +550,7 @@ export default function VoiceAgent() {
     sessionRef.current = null;
     agentRef.current = null;
     setIsConnected(false);
+    setIsListening(false);
     setConversationHistory([]);
   };
 
@@ -566,6 +617,12 @@ export default function VoiceAgent() {
                 <Badge variant="secondary" className="gap-1">
                   <Monitor className="h-3 w-3" />
                   System Audio Active
+                </Badge>
+              )}
+              {isConnected && isListening && (
+                <Badge variant="default" className="gap-1 bg-green-600">
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse" />
+                  Listening...
                 </Badge>
               )}
             </div>
@@ -868,6 +925,40 @@ export default function VoiceAgent() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* VAD Settings Section */}
+            <div className="border-t pt-4">
+              <label className="text-sm font-medium flex items-center gap-2 mb-2">
+                <Settings className="h-4 w-4" />
+                Voice Detection Sensitivity
+              </label>
+              <Select value={vadMode} onValueChange={(value: VadMode) => setVadMode(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conservative">
+                    Conservative (Recommended)
+                  </SelectItem>
+                  <SelectItem value="balanced">Balanced</SelectItem>
+                  <SelectItem value="responsive">Responsive</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                <div>
+                  <strong>Conservative:</strong> Waits for you to finish speaking.
+                  Reduces unwanted responses.
+                </div>
+                <div>
+                  <strong>Balanced:</strong> Moderate sensitivity with 800ms silence
+                  detection.
+                </div>
+                <div>
+                  <strong>Responsive:</strong> Fast responses, may interrupt
+                  occasionally.
+                </div>
+              </div>
             </div>
 
             {/* System Audio Section */}
