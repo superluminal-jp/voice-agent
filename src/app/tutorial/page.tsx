@@ -27,10 +27,14 @@ import {
   FileText,
   Languages,
   Headphones,
+  BookOpen,
+  Info,
 } from "lucide-react";
+import { getSystemPromptTemplates } from "@/lib/system-prompt-templates";
 
 export default function TutorialPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const SYSTEM_PROMPT_TEMPLATES = getSystemPromptTemplates(i18n.language);
   return (
     <main className="min-h-screen bg-gradient-to-br from-white to-gray-100 dark:from-black dark:to-gray-900">
       <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -396,6 +400,87 @@ export default function TutorialPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* System Prompt Templates */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              {t("tutorial.systemPromptTemplates.title")}
+            </CardTitle>
+            <CardDescription>
+              {t("tutorial.systemPromptTemplates.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
+              {SYSTEM_PROMPT_TEMPLATES.map((template) => (
+                <div
+                  key={template.id}
+                  className="p-4 rounded-lg border bg-card space-y-3"
+                >
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">
+                      {template.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {template.description}
+                    </p>
+                  </div>
+
+                  {template.whenToUse.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Info className="h-4 w-4" />
+                        {t("tutorial.systemPromptTemplates.whenToUse")}
+                      </p>
+                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-2">
+                        {template.whenToUse.map((use, index) => (
+                          <li key={index}>{use}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {template.notes.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        {t("tutorial.systemPromptTemplates.notes")}
+                      </p>
+                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-2">
+                        {template.notes.map((note, index) => (
+                          <li key={index}>{note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
+                    <div>
+                      <span className="font-medium">
+                        {t(
+                          "tutorial.systemPromptTemplates.recommendedInputMode"
+                        )}
+                        :
+                      </span>{" "}
+                      {t(`inputMode.${template.recommendedInputMode}`)}
+                    </div>
+                    <div>
+                      <span className="font-medium">
+                        {t(
+                          "tutorial.systemPromptTemplates.recommendedAudioSource"
+                        )}
+                        :
+                      </span>{" "}
+                      {t(`audioSource.${template.recommendedAudioSource}`)}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
