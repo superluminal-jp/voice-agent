@@ -151,6 +151,145 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "tutorial": {
+    "title": "Tutorial",
+    "subtitle": "Learn how to use Voice Agent",
+    "backToHome": "Back to Home",
+    "quickStart": {
+      "title": "Quick Start",
+      "description": "Get started in 5 minutes with basic usage",
+      "step1": {
+        "title": "Start Connection",
+        "description": "Click the \"Connect\" button on the home page to start a voice session."
+      },
+      "step2": {
+        "title": "Allow Microphone Access",
+        "description": "When the browser requests microphone access, click \"Allow\"."
+      },
+      "step3": {
+        "title": "Start Talking",
+        "description": "Speak naturally to the AI. The AI will respond in real-time."
+      },
+      "step4": {
+        "title": "Check Conversation History",
+        "description": "You can view your conversation history in the conversation history panel."
+      }
+    },
+    "mainFeatures": {
+      "title": "Main Features",
+      "description": "Introduction to Voice Agent's main features",
+      "inputModes": {
+        "title": "Voice Input Modes",
+        "description": "Choose from three modes: Always On, Push-to-Talk, and Toggle."
+      },
+      "systemAudio": {
+        "title": "System Audio Capture",
+        "description": "Capture audio from apps like Zoom and Teams."
+      },
+      "systemPrompt": {
+        "title": "System Prompt",
+        "description": "Customize the AI's behavior and personality."
+      },
+      "audioDevices": {
+        "title": "Audio Device Selection",
+        "description": "Select microphone and speaker individually."
+      }
+    },
+    "useCases": {
+      "title": "Use Cases",
+      "description": "Can be used in various scenarios",
+      "meetingAssistant": {
+        "title": "Meeting Assistant",
+        "description": "Transcribe and summarize Zoom or Teams meetings in real-time.",
+        "step1": "Enable system audio capture",
+        "step2": "Set system prompt to \"Meeting Summary\"",
+        "step3": "Check key points in conversation history"
+      },
+      "voiceMemo": {
+        "title": "Voice Memo & Task Management",
+        "description": "Record and organize ideas and tasks by voice while working.",
+        "step1": "Use Always On mode to speak naturally",
+        "step2": "Set system prompt to \"Task Management\"",
+        "step3": "Ask AI to organize and prioritize tasks"
+      },
+      "realtimeAssistant": {
+        "title": "Real-time Assistant During Meetings",
+        "description": "Ask questions and consult with AI during meetings.",
+        "step1": "Use Push-to-Talk mode",
+        "step2": "Mix system audio + microphone",
+        "step3": "Press Space key to speak"
+      },
+      "translation": {
+        "title": "Real-time Translation Assistant",
+        "description": "Translate foreign language conversations in real-time.",
+        "step1": "Set system prompt to \"Translation Assistant\"",
+        "step2": "Check before/after translation comparison in conversation history",
+        "step3": "Easily switch language selection"
+      }
+    },
+    "systemAudioSetup": {
+      "title": "System Audio Setup",
+      "description": "How to capture audio from apps like Zoom and Teams",
+      "quickSetup": {
+        "title": "Quick Setup (Browser Screen Share)",
+        "step1": "Click the \"Audio Settings\" button",
+        "step2": "Click \"Start Capture\" in the \"System Audio Capture\" section",
+        "step3": "Select screen or window and check \"Share system audio\"",
+        "step4": "Click \"Share\""
+      },
+      "quickSetupNote": "Note: This method captures all system audio. To capture only specific apps, use virtual audio cables.",
+      "advancedSetup": {
+        "title": "Advanced Setup (Virtual Audio Cables)",
+        "description": "For more fine-grained control, use virtual audio cables.",
+        "windows": "Windows: VB-Audio Virtual Cable or VoiceMeeter",
+        "macos": "macOS: BlackHole or Loopback",
+        "linux": "Linux: PulseAudio virtual devices"
+      },
+      "advancedSetupNote": "For detailed information: See the SYSTEM_AUDIO_SETUP.md file in the project for platform-specific detailed setup instructions."
+    },
+    "inputModes": {
+      "title": "Voice Input Modes",
+      "description": "Choose from three modes",
+      "alwaysOn": {
+        "title": "Always On",
+        "description": "Microphone is always active and automatically detects when you speak.",
+        "recommended": "Recommended: Quiet environments, voice memos, task management"
+      },
+      "pushToTalk": {
+        "title": "Push-to-Talk (PTT)",
+        "description": "Microphone is only active while holding the Space key.",
+        "recommended": "Recommended: Noisy environments, use during meetings"
+      },
+      "toggle": {
+        "title": "Toggle",
+        "description": "Toggle microphone on/off with the Space key.",
+        "recommended": "Recommended: Long conversations, hands-free operation"
+      }
+    },
+    "troubleshooting": {
+      "title": "Troubleshooting",
+      "description": "Common issues and solutions",
+      "micNotRecognized": {
+        "title": "Microphone not recognized",
+        "step1": "Check browser microphone permissions",
+        "step2": "Check if the correct microphone is selected in \"Audio Settings\"",
+        "step3": "Check if other apps are using the microphone"
+      },
+      "systemAudioNotCaptured": {
+        "title": "Cannot capture system audio",
+        "step1": "Check if you're using Chrome or Edge (Firefox and Safari are not supported)",
+        "step2": "Check if \"Share system audio\" is checked when sharing screen",
+        "step3": "If using virtual audio cables, check if they are configured correctly"
+      },
+      "connectionError": {
+        "title": "Connection error occurs",
+        "step1": "Check your internet connection",
+        "step2": "Check if OpenAI API key is configured correctly",
+        "step3": "Check error messages in browser console"
+      }
+    },
+    "startApp": "Start the App"
   }
 }
 
