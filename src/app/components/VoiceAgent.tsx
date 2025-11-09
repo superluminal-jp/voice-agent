@@ -46,6 +46,8 @@ import {
   Mic,
   Speaker,
   RefreshCw,
+  Monitor,
+  MixerHorizontal,
 } from "lucide-react";
 
 export default function VoiceAgent() {
@@ -69,9 +71,17 @@ export default function VoiceAgent() {
   const [selectedMicrophone, setSelectedMicrophone] = useState<string>("");
   const [selectedSpeaker, setSelectedSpeaker] = useState<string>("");
   const [isLoadingDevices, setIsLoadingDevices] = useState(false);
+  const [systemAudioEnabled, setSystemAudioEnabled] = useState(false);
+  const [systemAudioStream, setSystemAudioStream] =
+    useState<MediaStream | null>(null);
+  const [mixedAudioStream, setMixedAudioStream] = useState<MediaStream | null>(
+    null
+  );
   const sessionRef = useRef<RealtimeSession | null>(null);
   const agentRef = useRef<RealtimeAgent | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
 
   // Enumerate audio devices
   const enumerateAudioDevices = async () => {
@@ -104,6 +114,105 @@ export default function VoiceAgent() {
       );
     } finally {
       setIsLoadingDevices(false);
+    }
+  };
+
+  // Capture system audio via screen sharing
+  const captureSystemAudio = async () => {
+    try {
+      // Request screen sharing with audio
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        } as any,
+      });
+
+      // Extract only the audio track
+      const audioTrack = displayStream.getAudioTracks()[0];
+
+      if (!audioTrack) {
+        throw new Error(
+          "No audio track found. Please ensure 'Share system audio' is checked when selecting the screen."
+        );
+      }
+
+      // Stop the video track as we only need audio
+      displayStream.getVideoTracks().forEach((track) => track.stop());
+
+      // Create a new stream with only audio
+      const audioStream = new MediaStream([audioTrack]);
+      setSystemAudioStream(audioStream);
+      setSystemAudioEnabled(true);
+
+      // Listen for when the user stops sharing
+      audioTrack.onended = () => {
+        setSystemAudioEnabled(false);
+        setSystemAudioStream(null);
+        console.log("System audio capture stopped");
+      };
+
+      console.log("System audio captured successfully");
+    } catch (error) {
+      console.error("Error capturing system audio:", error);
+      setError(
+        "Failed to capture system audio. Make sure to check 'Share system audio' when selecting the screen."
+      );
+      setSystemAudioEnabled(false);
+    }
+  };
+
+  // Stop system audio capture
+  const stopSystemAudio = () => {
+    if (systemAudioStream) {
+      systemAudioStream.getTracks().forEach((track) => track.stop());
+      setSystemAudioStream(null);
+    }
+    setSystemAudioEnabled(false);
+  };
+
+  // Mix microphone and system audio streams
+  const mixAudioStreams = async (
+    micStream: MediaStream,
+    sysStream: MediaStream | null
+  ): Promise<MediaStream> => {
+    if (!sysStream) {
+      return micStream;
+    }
+
+    try {
+      // Create audio context
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+
+      // Create source nodes
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      const sysSource = audioContext.createMediaStreamSource(sysStream);
+
+      // Create destination
+      const destination = audioContext.createMediaStreamDestination();
+
+      // Create gain nodes for volume control
+      const micGain = audioContext.createGain();
+      const sysGain = audioContext.createGain();
+
+      // Set gain values (adjust as needed)
+      micGain.gain.value = 1.0; // Microphone at 100%
+      sysGain.gain.value = 0.7; // System audio at 70% to prevent overwhelming
+
+      // Connect the audio graph
+      micSource.connect(micGain);
+      sysGain.connect(destination);
+      micGain.connect(destination);
+      sysSource.connect(sysGain);
+
+      console.log("Audio streams mixed successfully");
+      return destination.stream;
+    } catch (error) {
+      console.error("Error mixing audio streams:", error);
+      return micStream;
     }
   };
 
@@ -272,6 +381,22 @@ export default function VoiceAgent() {
       }
     }
 
+    // Clean up audio resources
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((track) => track.stop());
+      micStreamRef.current = null;
+    }
+
+    if (mixedAudioStream) {
+      mixedAudioStream.getTracks().forEach((track) => track.stop());
+      setMixedAudioStream(null);
+    }
+
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
     sessionRef.current = null;
     agentRef.current = null;
     setIsConnected(false);
@@ -293,8 +418,18 @@ export default function VoiceAgent() {
           console.error("Cleanup error:", error);
         }
       }
+
+      // Clean up system audio
+      if (systemAudioStream) {
+        systemAudioStream.getTracks().forEach((track) => track.stop());
+      }
+
+      // Clean up audio context
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
     };
-  }, []);
+  }, [systemAudioStream]);
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 space-y-6">
@@ -327,6 +462,12 @@ export default function VoiceAgent() {
                   ? "Connecting..."
                   : "Disconnected"}
               </Badge>
+              {systemAudioEnabled && (
+                <Badge variant="secondary" className="gap-1">
+                  <Monitor className="h-3 w-3" />
+                  System Audio Active
+                </Badge>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -611,8 +752,59 @@ export default function VoiceAgent() {
               </Select>
             </div>
 
+            {/* System Audio Section */}
+            <div className="border-t pt-4">
+              <label className="text-sm font-medium flex items-center gap-2 mb-2">
+                <Monitor className="h-4 w-4" />
+                System Audio Capture
+              </label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {systemAudioEnabled ? (
+                      <span className="flex items-center gap-2 text-green-600 font-medium">
+                        <span className="h-2 w-2 bg-green-600 rounded-full animate-pulse" />
+                        Capturing system audio
+                      </span>
+                    ) : (
+                      "Capture audio from apps (Zoom, Teams, etc.)"
+                    )}
+                  </div>
+                  <Button
+                    variant={systemAudioEnabled ? "destructive" : "default"}
+                    size="sm"
+                    onClick={
+                      systemAudioEnabled ? stopSystemAudio : captureSystemAudio
+                    }
+                    className="gap-2"
+                  >
+                    {systemAudioEnabled ? (
+                      <>
+                        <PhoneOff className="h-4 w-4" />
+                        Stop Capture
+                      </>
+                    ) : (
+                      <>
+                        <Monitor className="h-4 w-4" />
+                        Start Capture
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Alert>
+                  <MixerHorizontal className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    <strong>How it works:</strong> Click "Start Capture", then
+                    select your screen/window and check "Share system audio" in
+                    the browser prompt. This captures ALL system audio including
+                    Zoom, Teams, music, etc.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            </div>
+
             {/* Refresh Button */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center border-t pt-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -634,12 +826,29 @@ export default function VoiceAgent() {
             </div>
 
             {/* Info */}
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground space-y-2">
               <p>
-                <strong>Note:</strong> The selected devices will be used when
-                you connect to the voice agent. Make sure to grant microphone
+                <strong>Device Selection:</strong> The selected microphone and
+                speaker will be used for the voice agent. Make sure to grant
                 permissions when prompted.
               </p>
+              <div className="text-xs">
+                <p className="font-medium mb-1">
+                  Advanced: Virtual Audio Cables
+                </p>
+                <p>
+                  For better control over system audio routing, install virtual
+                  audio software:
+                </p>
+                <ul className="list-disc list-inside ml-2 mt-1">
+                  <li>Windows: VB-Cable, VoiceMeeter</li>
+                  <li>macOS: BlackHole, Loopback</li>
+                  <li>Linux: PulseAudio virtual sinks</li>
+                </ul>
+                <p className="mt-1">
+                  Then select the virtual device in the dropdowns above.
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
