@@ -47,7 +47,7 @@ import {
   Speaker,
   RefreshCw,
   Monitor,
-  MixerHorizontal,
+  Info,
 } from "lucide-react";
 
 export default function VoiceAgent() {
@@ -792,7 +792,7 @@ export default function VoiceAgent() {
                   </Button>
                 </div>
                 <Alert>
-                  <MixerHorizontal className="h-4 w-4" />
+                  <Info className="h-4 w-4" />
                   <AlertDescription className="text-xs">
                     <strong>How it works:</strong> Click "Start Capture", then
                     select your screen/window and check "Share system audio" in
