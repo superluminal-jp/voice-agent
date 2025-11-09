@@ -110,13 +110,28 @@
     "description": "Customize the AI assistant's behavior and personality by editing the system prompt.",
     "label": "System Prompt",
     "placeholder": "Enter the system prompt for the AI assistant...",
-    "default": "You are a helpful assistant.",
+    "templateLabel": "Select Template",
+    "templatePlaceholder": "Select a template",
+    "recommendedInputMode": "Recommended Input Mode",
+    "recommendedAudioSource": "Recommended Audio Source",
+    "whenToUse": "When to Use",
+    "notes": "Notes",
     "tips": "Tips:",
     "tip1": "Be specific about the assistant's role and personality",
     "tip2": "Include any constraints or guidelines",
     "tip3": "Specify the tone and communication style",
     "tip4": "Add any domain-specific knowledge or context",
     "updateButton": "Update System Prompt"
+  },
+  "inputMode": {
+    "always_on": "Always On",
+    "push_to_talk": "Push-to-Talk",
+    "toggle": "Toggle"
+  },
+  "audioSource": {
+    "mic": "Microphone Only",
+    "system_audio": "System Audio Only",
+    "mixed": "Microphone + System Audio"
   },
   "conversation": {
     "title": "Conversation History",
@@ -248,6 +263,14 @@
       },
       "advancedSetupNote": "For detailed information: See the SYSTEM_AUDIO_SETUP.md file in the project for platform-specific detailed setup instructions."
     },
+    "systemPromptTemplates": {
+      "title": "System Prompt Templates",
+      "description": "Select optimized system prompt templates for different use cases. Each template includes when to use it and important notes.",
+      "whenToUse": "When to Use",
+      "notes": "Notes",
+      "recommendedInputMode": "Recommended Input Mode",
+      "recommendedAudioSource": "Recommended Audio Source"
+    },
     "inputModes": {
       "title": "Voice Input Modes",
       "description": "Choose from three modes",
@@ -292,4 +315,3 @@
     "startApp": "Start the App"
   }
 }
-

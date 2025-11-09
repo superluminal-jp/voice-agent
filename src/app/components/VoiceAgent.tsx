@@ -65,9 +65,15 @@ import { ConnectionStatus } from "./voice-agent/ConnectionStatus";
 import { ErrorAlert } from "./voice-agent/ErrorAlert";
 import { ConversationHistory } from "./voice-agent/ConversationHistory";
 import { useTranslation } from "react-i18next";
+import {
+  getSystemPromptTemplates,
+  getTemplateById,
+  type SystemPromptTemplate,
+} from "@/lib/system-prompt-templates";
 
 export default function VoiceAgent() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const SYSTEM_PROMPT_TEMPLATES = getSystemPromptTemplates(i18n.language);
 
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
@@ -78,11 +84,14 @@ export default function VoiceAgent() {
   const [conversationHistory, setConversationHistory] = useState<
     RealtimeItem[]
   >([]);
+  const defaultTemplate = getTemplateById("default", i18n.language);
   const [systemPrompt, setSystemPrompt] = useState(
-    t("systemPrompt.default")
+    defaultTemplate?.prompt ?? ""
   );
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [tempPrompt, setTempPrompt] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] =
+    useState<string>("default");
   const [isAudioDialogOpen, setIsAudioDialogOpen] = useState(false);
 
   // Microphone test state
@@ -147,6 +156,34 @@ export default function VoiceAgent() {
     micGainRef,
     audioStreamRef: pttAudioStreamRef,
   } = pttHook;
+
+  // Update default system prompt when language changes
+  const previousLanguageRef = useRef<string>(i18n.language);
+  useEffect(() => {
+    // Only update if language actually changed
+    if (previousLanguageRef.current !== i18n.language) {
+      const defaultTemplate = getTemplateById("default", i18n.language);
+      if (defaultTemplate) {
+        // Only update if the current prompt matches the previous default template
+        // This prevents overwriting user-customized prompts
+        const previousDefaultTemplate = getTemplateById(
+          "default",
+          previousLanguageRef.current
+        );
+        if (
+          previousDefaultTemplate &&
+          systemPrompt === previousDefaultTemplate.prompt
+        ) {
+          setSystemPrompt(defaultTemplate.prompt);
+        } else if (systemPrompt === "") {
+          // Empty prompt - set to new default
+          setSystemPrompt(defaultTemplate.prompt);
+        }
+      }
+      previousLanguageRef.current = i18n.language;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
 
   // Sync PTT audio stream ref with final audio stream ref
   useEffect(() => {
@@ -343,7 +380,25 @@ export default function VoiceAgent() {
   // Open prompt dialog
   const openPromptDialog = () => {
     setTempPrompt(systemPrompt);
+    // Try to find matching template
+    const matchingTemplate = SYSTEM_PROMPT_TEMPLATES.find(
+      (template) => template.prompt === systemPrompt
+    );
+    if (matchingTemplate) {
+      setSelectedTemplateId(matchingTemplate.id);
+    } else {
+      setSelectedTemplateId("default");
+    }
     setIsPromptDialogOpen(true);
+  };
+
+  // Handle template selection
+  const handleTemplateSelect = (templateId: string) => {
+    const template = SYSTEM_PROMPT_TEMPLATES.find((t) => t.id === templateId);
+    if (template) {
+      setSelectedTemplateId(templateId);
+      setTempPrompt(template.prompt);
+    }
   };
 
   // Disconnect from Realtime API
@@ -566,7 +621,7 @@ export default function VoiceAgent() {
 
       {/* System Prompt Dialog */}
       <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("systemPrompt.title")}</DialogTitle>
             <DialogDescription>
@@ -574,6 +629,67 @@ export default function VoiceAgent() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Template Selection */}
+            <div>
+              <label
+                htmlFor="template-select"
+                className="text-sm font-medium mb-2 block"
+              >
+                {t("systemPrompt.templateLabel")}
+              </label>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={handleTemplateSelect}
+              >
+                <SelectTrigger id="template-select" className="w-full">
+                  <SelectValue
+                    placeholder={t("systemPrompt.templatePlaceholder")}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {SYSTEM_PROMPT_TEMPLATES.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(() => {
+                const selectedTemplate = SYSTEM_PROMPT_TEMPLATES.find(
+                  (t) => t.id === selectedTemplateId
+                );
+                if (selectedTemplate) {
+                  return (
+                    <div className="mt-2 p-3 rounded-lg bg-muted text-sm">
+                      <p className="font-medium mb-1">
+                        {selectedTemplate.description}
+                      </p>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <p>
+                          <strong>
+                            {t("systemPrompt.recommendedInputMode")}:
+                          </strong>{" "}
+                          {t(
+                            `inputMode.${selectedTemplate.recommendedInputMode}`
+                          )}
+                        </p>
+                        <p>
+                          <strong>
+                            {t("systemPrompt.recommendedAudioSource")}:
+                          </strong>{" "}
+                          {t(
+                            `audioSource.${selectedTemplate.recommendedAudioSource}`
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+
+            {/* Prompt Textarea */}
             <div>
               <label htmlFor="system-prompt" className="text-sm font-medium">
                 {t("systemPrompt.label")}
@@ -583,9 +699,47 @@ export default function VoiceAgent() {
                 value={tempPrompt}
                 onChange={(e) => setTempPrompt(e.target.value)}
                 placeholder={t("systemPrompt.placeholder")}
-                className="mt-2 min-h-[200px]"
+                className="mt-2 min-h-[300px] font-mono text-sm"
               />
             </div>
+
+            {/* Template Info */}
+            {(() => {
+              const selectedTemplate = SYSTEM_PROMPT_TEMPLATES.find(
+                (t) => t.id === selectedTemplateId
+              );
+              if (selectedTemplate && selectedTemplate.whenToUse.length > 0) {
+                return (
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium mb-1">
+                        {t("systemPrompt.whenToUse")}
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                        {selectedTemplate.whenToUse.map((use, index) => (
+                          <li key={index}>{use}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    {selectedTemplate.notes.length > 0 && (
+                      <div className="text-sm">
+                        <p className="font-medium mb-1">
+                          {t("systemPrompt.notes")}
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                          {selectedTemplate.notes.map((note, index) => (
+                            <li key={index}>{note}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* General Tips */}
             <div className="text-sm text-muted-foreground">
               <p>
                 <strong>{t("systemPrompt.tips")}</strong>
@@ -605,7 +759,9 @@ export default function VoiceAgent() {
             >
               {t("common.cancel")}
             </Button>
-            <Button onClick={updateSystemPrompt}>{t("systemPrompt.updateButton")}</Button>
+            <Button onClick={updateSystemPrompt}>
+              {t("systemPrompt.updateButton")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -626,7 +782,9 @@ export default function VoiceAgent() {
             {/* Audio Devices Section */}
             <Card className="border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">{t("audio.devices.title")}</CardTitle>
+                <CardTitle className="text-base">
+                  {t("audio.devices.title")}
+                </CardTitle>
                 <CardDescription className="text-xs">
                   {t("audio.devices.description")}
                 </CardDescription>
@@ -648,7 +806,9 @@ export default function VoiceAgent() {
                       disabled={isLoadingDevices || isTestingMicrophone}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={t("audio.devices.selectMicrophone")} />
+                        <SelectValue
+                          placeholder={t("audio.devices.selectMicrophone")}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {audioDevices.microphones.map((device) => (
@@ -717,7 +877,9 @@ export default function VoiceAgent() {
                     disabled={isLoadingDevices}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={t("audio.devices.selectSpeaker")} />
+                      <SelectValue
+                        placeholder={t("audio.devices.selectSpeaker")}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {audioDevices.speakers.map((device) => (
@@ -762,7 +924,9 @@ export default function VoiceAgent() {
             {/* Voice Detection Settings Section */}
             <Card className="border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">{t("audio.voiceDetection.title")}</CardTitle>
+                <CardTitle className="text-base">
+                  {t("audio.voiceDetection.title")}
+                </CardTitle>
                 <CardDescription className="text-xs">
                   {t("audio.voiceDetection.description")}
                 </CardDescription>
@@ -785,19 +949,28 @@ export default function VoiceAgent() {
                       <SelectItem value="conservative">
                         {t("audio.voiceDetection.conservative")}
                       </SelectItem>
-                      <SelectItem value="balanced">{t("audio.voiceDetection.balanced")}</SelectItem>
-                      <SelectItem value="responsive">{t("audio.voiceDetection.responsive")}</SelectItem>
+                      <SelectItem value="balanced">
+                        {t("audio.voiceDetection.balanced")}
+                      </SelectItem>
+                      <SelectItem value="responsive">
+                        {t("audio.voiceDetection.responsive")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <div className="mt-2 text-xs text-muted-foreground space-y-1">
                     <div>
-                      <strong>{t("audio.voiceDetection.conservative").split(" ")[0]}:</strong> {t("audio.voiceDetection.conservativeDesc")}
+                      <strong>
+                        {t("audio.voiceDetection.conservative").split(" ")[0]}:
+                      </strong>{" "}
+                      {t("audio.voiceDetection.conservativeDesc")}
                     </div>
                     <div>
-                      <strong>{t("audio.voiceDetection.balanced")}:</strong> {t("audio.voiceDetection.balancedDesc")}
+                      <strong>{t("audio.voiceDetection.balanced")}:</strong>{" "}
+                      {t("audio.voiceDetection.balancedDesc")}
                     </div>
                     <div>
-                      <strong>{t("audio.voiceDetection.responsive")}:</strong> {t("audio.voiceDetection.responsiveDesc")}
+                      <strong>{t("audio.voiceDetection.responsive")}:</strong>{" "}
+                      {t("audio.voiceDetection.responsiveDesc")}
                     </div>
                   </div>
                 </div>
@@ -823,18 +996,23 @@ export default function VoiceAgent() {
                       <SelectItem value="push_to_talk">
                         {t("audio.voiceDetection.pushToTalk")}
                       </SelectItem>
-                      <SelectItem value="toggle">{t("audio.voiceDetection.toggle")}</SelectItem>
+                      <SelectItem value="toggle">
+                        {t("audio.voiceDetection.toggle")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <div className="mt-2 text-xs text-muted-foreground space-y-1">
                     <div>
-                      <strong>{t("connection.inputMode.alwaysOn")}:</strong> {t("audio.voiceDetection.alwaysOnDesc")}
+                      <strong>{t("connection.inputMode.alwaysOn")}:</strong>{" "}
+                      {t("audio.voiceDetection.alwaysOnDesc")}
                     </div>
                     <div>
-                      <strong>{t("connection.inputMode.pushToTalk")}:</strong> {t("audio.voiceDetection.pushToTalkDesc")}
+                      <strong>{t("connection.inputMode.pushToTalk")}:</strong>{" "}
+                      {t("audio.voiceDetection.pushToTalkDesc")}
                     </div>
                     <div>
-                      <strong>{t("connection.inputMode.toggle")}:</strong> {t("audio.voiceDetection.toggleDesc")}
+                      <strong>{t("connection.inputMode.toggle")}:</strong>{" "}
+                      {t("audio.voiceDetection.toggleDesc")}
                     </div>
                     {inputMode !== "always_on" && (
                       <div className="pt-1 text-gray-600 dark:text-gray-400 font-medium">
@@ -906,7 +1084,8 @@ export default function VoiceAgent() {
                       </ol>
                     </div>
                     <div className="pt-2 border-t">
-                      <strong>{t("audio.systemAudio.note")}</strong> {t("audio.systemAudio.noteText")}
+                      <strong>{t("audio.systemAudio.note")}</strong>{" "}
+                      {t("audio.systemAudio.noteText")}
                     </div>
                     <div className="pt-2 border-t">
                       <strong>{t("audio.systemAudio.browserSupport")}</strong>

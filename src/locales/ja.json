@@ -110,13 +110,28 @@
     "description": "システムプロンプトを編集して、AIアシスタントの動作と性格をカスタマイズします。",
     "label": "システムプロンプト",
     "placeholder": "AIアシスタントのシステムプロンプトを入力...",
-    "default": "あなたは親切なアシスタントです。",
+    "templateLabel": "テンプレートを選択",
+    "templatePlaceholder": "テンプレートを選択してください",
+    "recommendedInputMode": "推奨入力モード",
+    "recommendedAudioSource": "推奨オーディオソース",
+    "whenToUse": "使いどき",
+    "notes": "注意事項",
     "tips": "ヒント:",
     "tip1": "アシスタントの役割と性格を具体的に指定する",
     "tip2": "制約やガイドラインを含める",
     "tip3": "トーンとコミュニケーションスタイルを指定する",
     "tip4": "ドメイン固有の知識やコンテキストを追加する",
     "updateButton": "システムプロンプトを更新"
+  },
+  "inputMode": {
+    "always_on": "Always On",
+    "push_to_talk": "Push-to-Talk",
+    "toggle": "Toggle"
+  },
+  "audioSource": {
+    "mic": "マイクのみ",
+    "system_audio": "システムオーディオのみ",
+    "mixed": "マイク + システムオーディオ"
   },
   "conversation": {
     "title": "会話履歴",
@@ -247,6 +262,14 @@
       },
       "advancedSetupNote": "詳細情報: プロジェクトの SYSTEM_AUDIO_SETUP.md ファイルに、プラットフォーム別の詳細な設定手順が記載されています。"
     },
+    "systemPromptTemplates": {
+      "title": "システムプロンプトテンプレート",
+      "description": "用途に応じた最適化されたシステムプロンプトテンプレートを選択できます。各テンプレートには、使いどきや注意事項が記載されています。",
+      "whenToUse": "使いどき",
+      "notes": "注意事項",
+      "recommendedInputMode": "推奨入力モード",
+      "recommendedAudioSource": "推奨オーディオソース"
+    },
     "inputModes": {
       "title": "音声入力モード",
       "description": "3つのモードから選択できます",
@@ -291,4 +314,3 @@
     "startApp": "アプリを開始する"
   }
 }
-
