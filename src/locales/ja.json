@@ -150,6 +150,145 @@
     "light": "ライト",
     "dark": "ダーク",
     "system": "システム"
+  },
+  "tutorial": {
+    "title": "チュートリアル",
+    "subtitle": "Voice Agent の使い方を学びましょう",
+    "backToHome": "ホームに戻る",
+    "quickStart": {
+      "title": "クイックスタート",
+      "description": "5分で始められる基本的な使い方",
+      "step1": {
+        "title": "接続を開始",
+        "description": "ホームページの「Connect」ボタンをクリックして、音声セッションを開始します。"
+      },
+      "step2": {
+        "title": "マイクの許可",
+        "description": "ブラウザがマイクへのアクセスを要求したら、「許可」をクリックしてください。"
+      },
+      "step3": {
+        "title": "話しかける",
+        "description": "AI に自然に話しかけてください。AI がリアルタイムで応答します。"
+      },
+      "step4": {
+        "title": "会話履歴を確認",
+        "description": "会話履歴パネルで、これまでの会話を確認できます。"
+      }
+    },
+    "mainFeatures": {
+      "title": "主要機能",
+      "description": "Voice Agent の主要な機能を紹介します",
+      "inputModes": {
+        "title": "音声入力モード",
+        "description": "Always On、Push-to-Talk、Toggle の3つのモードから選択できます。"
+      },
+      "systemAudio": {
+        "title": "システムオーディオキャプチャ",
+        "description": "Zoom、Teams などのアプリの音声をキャプチャできます。"
+      },
+      "systemPrompt": {
+        "title": "システムプロンプト",
+        "description": "AI の動作や性格をカスタマイズできます。"
+      },
+      "audioDevices": {
+        "title": "オーディオデバイス選択",
+        "description": "マイクとスピーカーを個別に選択できます。"
+      }
+    },
+    "useCases": {
+      "title": "使用例",
+      "description": "様々なシーンで活用できます",
+      "meetingAssistant": {
+        "title": "会議アシスタント",
+        "description": "Zoom や Teams の会議をリアルタイムで文字起こし・要約します。",
+        "step1": "システムオーディオキャプチャを有効化",
+        "step2": "システムプロンプトを「会議要約」に設定",
+        "step3": "会話履歴で要点を確認"
+      },
+      "voiceMemo": {
+        "title": "音声メモ・タスク管理",
+        "description": "作業中にアイデアやタスクを音声で記録・整理します。",
+        "step1": "Always On モードで自然に話しかける",
+        "step2": "システムプロンプトを「タスク管理」に設定",
+        "step3": "AI にタスクを整理・優先順位付けしてもらう"
+      },
+      "realtimeAssistant": {
+        "title": "会議中のリアルタイムアシスタント",
+        "description": "会議中に AI に質問・相談できます。",
+        "step1": "Push-to-Talk モードを使用",
+        "step2": "システムオーディオ + マイクをミキシング",
+        "step3": "Space キーを押して話す"
+      },
+      "translation": {
+        "title": "リアルタイム翻訳アシスタント",
+        "description": "外国語の会話をリアルタイムで翻訳します。",
+        "step1": "システムプロンプトを「翻訳アシスタント」に設定",
+        "step2": "会話履歴で翻訳前後の対比を確認",
+        "step3": "言語選択を簡単に切り替え"
+      }
+    },
+    "systemAudioSetup": {
+      "title": "システムオーディオ設定",
+      "description": "Zoom、Teams などのアプリの音声をキャプチャする方法",
+      "quickSetup": {
+        "title": "クイックセットアップ（ブラウザ画面共有）",
+        "step1": "「Audio Settings」ボタンをクリック",
+        "step2": "「System Audio Capture」セクションで「Start Capture」をクリック",
+        "step3": "画面またはウィンドウを選択し、「Share system audio」にチェック",
+        "step4": "「Share」をクリック"
+      },
+      "quickSetupNote": "注意: この方法では、すべてのシステム音声がキャプチャされます。特定のアプリのみをキャプチャしたい場合は、仮想オーディオケーブルを使用してください。",
+      "advancedSetup": {
+        "title": "高度な設定（仮想オーディオケーブル）",
+        "description": "より細かい制御が必要な場合は、仮想オーディオケーブルを使用します。",
+        "windows": "Windows: VB-Audio Virtual Cable または VoiceMeeter",
+        "macos": "macOS: BlackHole または Loopback",
+        "linux": "Linux: PulseAudio の仮想デバイス"
+      },
+      "advancedSetupNote": "詳細情報: プロジェクトの SYSTEM_AUDIO_SETUP.md ファイルに、プラットフォーム別の詳細な設定手順が記載されています。"
+    },
+    "inputModes": {
+      "title": "音声入力モード",
+      "description": "3つのモードから選択できます",
+      "alwaysOn": {
+        "title": "Always On（常時有効）",
+        "description": "マイクが常に有効で、話すと自動的に検出されます。",
+        "recommended": "推奨: 静かな環境、音声メモ、タスク管理"
+      },
+      "pushToTalk": {
+        "title": "Push-to-Talk（PTT）",
+        "description": "Space キーを押している間だけマイクが有効になります。",
+        "recommended": "推奨: ノイズ環境、会議中の使用"
+      },
+      "toggle": {
+        "title": "Toggle（切り替え）",
+        "description": "Space キーでマイクのオン/オフを切り替えます。",
+        "recommended": "推奨: 長時間の会話、ハンズフリー操作"
+      }
+    },
+    "troubleshooting": {
+      "title": "トラブルシューティング",
+      "description": "よくある問題と解決方法",
+      "micNotRecognized": {
+        "title": "マイクが認識されない",
+        "step1": "ブラウザのマイク権限を確認してください",
+        "step2": "「Audio Settings」で正しいマイクが選択されているか確認してください",
+        "step3": "他のアプリがマイクを使用していないか確認してください"
+      },
+      "systemAudioNotCaptured": {
+        "title": "システムオーディオがキャプチャできない",
+        "step1": "Chrome または Edge を使用しているか確認してください（Firefox や Safari では対応していません）",
+        "step2": "画面共有時に「Share system audio」にチェックが入っているか確認してください",
+        "step3": "仮想オーディオケーブルを使用する場合は、正しく設定されているか確認してください"
+      },
+      "connectionError": {
+        "title": "接続エラーが発生する",
+        "step1": "インターネット接続を確認してください",
+        "step2": "OpenAI API キーが正しく設定されているか確認してください",
+        "step3": "ブラウザのコンソールでエラーメッセージを確認してください"
+      }
+    },
+    "startApp": "アプリを開始する"
   }
 }
 
