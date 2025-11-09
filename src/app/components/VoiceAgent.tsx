@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   RealtimeAgent,
   RealtimeSession,
@@ -116,51 +116,71 @@ export default function VoiceAgent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const finalAudioStreamRef = useRef<MediaStream | null>(null);
 
   // Handle keyboard events for PTT control
-  const handleKeyDown = (event: KeyboardEvent) => {
-    // Only handle space key
-    if (event.code !== "Space") return;
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      // Only handle space key
+      if (event.code !== "Space") return;
 
-    // Ignore if user is typing in an input field
-    const target = event.target as HTMLElement;
-    if (
-      target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.isContentEditable
-    ) {
-      return;
-    }
-
-    // Prevent default space behavior (page scroll)
-    event.preventDefault();
-
-    if (inputMode === "push_to_talk") {
-      // PTT mode: activate while key is held
-      if (!isPTTActive && isConnected) {
-        setIsPTTActive(true);
-        console.log("[PTT] Activated - space key pressed");
+      // Ignore if user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
       }
-    } else if (inputMode === "toggle") {
-      // Toggle mode: switch on first press (ignore repeats)
-      if (!event.repeat && isConnected) {
-        setIsPTTActive(!isPTTActive);
-        console.log(
-          `[PTT] Toggled - now ${!isPTTActive ? "active" : "inactive"}`
-        );
+
+      // Prevent default space behavior (page scroll)
+      event.preventDefault();
+
+      if (inputMode === "push_to_talk") {
+        // PTT mode: activate while key is held
+        if (isConnected) {
+          setIsPTTActive((prev) => {
+            if (!prev) {
+              console.log("[PTT] Activated - space key pressed");
+              return true;
+            }
+            return prev;
+          });
+        }
+      } else if (inputMode === "toggle") {
+        // Toggle mode: switch on first press (ignore repeats)
+        if (!event.repeat && isConnected) {
+          setIsPTTActive((prev) => {
+            const newState = !prev;
+            console.log(
+              `[PTT] Toggled - now ${newState ? "active" : "inactive"}`
+            );
+            return newState;
+          });
+        }
       }
-    }
-  };
+    },
+    [inputMode, isConnected]
+  );
 
-  const handleKeyUp = (event: KeyboardEvent) => {
-    if (event.code !== "Space") return;
+  const handleKeyUp = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.code !== "Space") return;
 
-    if (inputMode === "push_to_talk" && isPTTActive) {
-      // PTT mode: deactivate when key is released
-      setIsPTTActive(false);
-      console.log("[PTT] Deactivated - space key released");
-    }
-  };
+      if (inputMode === "push_to_talk") {
+        // PTT mode: deactivate when key is released
+        setIsPTTActive((prev) => {
+          if (prev) {
+            console.log("[PTT] Deactivated - space key released");
+            return false;
+          }
+          return prev;
+        });
+      }
+    },
+    [inputMode]
+  );
 
   // Enumerate audio devices
   const enumerateAudioDevices = async () => {
@@ -371,7 +391,8 @@ export default function VoiceAgent() {
       const sysGain = audioContext.createGain();
 
       // Set gain values (adjust as needed)
-      micGain.gain.value = 1.0; // Microphone at 100%
+      // Note: micGain will be controlled by PTT state via useEffect
+      micGain.gain.value = 1.0; // Microphone at 100% (will be adjusted by PTT control)
       sysGain.gain.value = 0.7; // System audio at 70% to prevent overwhelming
 
       // Store gain references for dynamic control
@@ -490,7 +511,8 @@ export default function VoiceAgent() {
         ? await mixAudioStreams(micStream, systemAudioStream)
         : micStream;
 
-      // Store mixed stream for cleanup
+      // Store references for PTT control
+      finalAudioStreamRef.current = finalStream;
       if (finalStream !== micStream) {
         setMixedAudioStream(finalStream);
       }
@@ -508,10 +530,11 @@ export default function VoiceAgent() {
         config: {
           audio: {
             input: {
-              turnDetection:
-                inputMode === "always_on"
-                  ? VAD_PRESETS[vadMode]
-                  : (null as any),
+              // Only include turnDetection when in always_on mode
+              // Omitting it entirely disables VAD for PTT/Toggle modes
+              ...(inputMode === "always_on" && {
+                turnDetection: VAD_PRESETS[vadMode],
+              }),
             },
           },
         },
@@ -575,6 +598,17 @@ export default function VoiceAgent() {
       // Store references
       agentRef.current = agent;
       sessionRef.current = session;
+
+      // Initialize PTT state: disable tracks for PTT/Toggle modes on connection
+      if (inputMode !== "always_on" && finalAudioStreamRef.current) {
+        const audioTracks = finalAudioStreamRef.current.getAudioTracks();
+        audioTracks.forEach((track) => {
+          track.enabled = false;
+        });
+        console.log(
+          "[PTT] Initialized with tracks disabled for PTT/Toggle mode"
+        );
+      }
 
       setIsConnected(true);
       setIsConnecting(false);
@@ -649,8 +683,10 @@ export default function VoiceAgent() {
 
     sessionRef.current = null;
     agentRef.current = null;
+    finalAudioStreamRef.current = null;
     setIsConnected(false);
     setIsListening(false);
+    setIsPTTActive(false);
     setConversationHistory([]);
   };
 
@@ -668,23 +704,41 @@ export default function VoiceAgent() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [inputMode, isPTTActive, isConnected]);
+  }, [handleKeyDown, handleKeyUp]);
 
-  // Control microphone gain based on PTT state
+  // Control microphone input based on PTT state
   useEffect(() => {
-    if (!micGainRef.current) return;
+    if (!isConnected) return;
 
-    if (inputMode === "always_on") {
-      // Always on mode: mic always enabled
-      micGainRef.current.gain.value = 1.0;
-    } else {
-      // PTT or Toggle mode: mic enabled only when PTT is active
-      micGainRef.current.gain.value = isPTTActive ? 1.0 : 0;
+    // Control via gain node (for mixed audio scenarios)
+    if (micGainRef.current) {
+      if (inputMode === "always_on") {
+        // Always on mode: mic always enabled
+        micGainRef.current.gain.value = 1.0;
+      } else {
+        // PTT or Toggle mode: mic enabled only when PTT is active
+        micGainRef.current.gain.value = isPTTActive ? 1.0 : 0;
+      }
+    }
+
+    // Control audio tracks directly (more reliable for stopping transmission)
+    if (finalAudioStreamRef.current) {
+      const audioTracks = finalAudioStreamRef.current.getAudioTracks();
+      audioTracks.forEach((track) => {
+        if (inputMode === "always_on") {
+          track.enabled = true;
+        } else {
+          // PTT or Toggle mode: enable track only when PTT is active
+          track.enabled = isPTTActive;
+        }
+      });
       console.log(
-        `[PTT Control] Microphone ${isPTTActive ? "enabled" : "muted"}`
+        `[PTT Control] Audio tracks ${
+          isPTTActive || inputMode === "always_on" ? "enabled" : "disabled"
+        } (mode: ${inputMode}, PTT: ${isPTTActive})`
       );
     }
-  }, [isPTTActive, inputMode]);
+  }, [isPTTActive, inputMode, isConnected]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -852,10 +906,20 @@ export default function VoiceAgent() {
               <p className="text-muted-foreground">
                 You are connected! Start talking to your voice agent.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                The agent will automatically detect when you start and stop
-                speaking.
-              </p>
+              {inputMode === "always_on" ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  The agent will automatically detect when you start and stop
+                  speaking.
+                </p>
+              ) : inputMode === "push_to_talk" ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Hold the Space key to transmit. Release to stop.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Press Space to start/stop transmission.
+                </p>
+              )}
             </div>
           )}
         </CardContent>
