@@ -18,6 +18,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -46,6 +47,8 @@ import {
   ChevronUp,
   Play,
   Square,
+  FileText,
+  Pencil,
 } from "lucide-react";
 
 // Types and utilities
@@ -64,7 +67,7 @@ import { useAudioLevel } from "@/hooks/useAudioLevel";
 import { ConnectionStatus } from "./voice-agent/ConnectionStatus";
 import { ErrorAlert } from "./voice-agent/ErrorAlert";
 import { ConversationHistory } from "./voice-agent/ConversationHistory";
-import { SessionHistoryList } from "./voice-agent/SessionHistoryList";
+import { TextInput } from "./voice-agent/TextInput";
 import { useTranslation } from "react-i18next";
 import {
   getSystemPromptTemplates,
@@ -72,10 +75,15 @@ import {
   type SystemPromptTemplate,
 } from "@/lib/system-prompt-templates";
 import {
-  saveSession,
   generateSessionId,
-  type SavedSession,
+  validateHistory,
 } from "@/lib/session-storage";
+import {
+  isRealtimeMessageItem,
+  isUserMessage,
+  isAssistantMessage,
+  getItemId,
+} from "@/types/realtime-session";
 
 export default function VoiceAgent() {
   const { t, i18n } = useTranslation();
@@ -99,8 +107,6 @@ export default function VoiceAgent() {
   const [selectedTemplateId, setSelectedTemplateId] =
     useState<string>("default");
   const [isAudioDialogOpen, setIsAudioDialogOpen] = useState(false);
-  const [isSessionHistoryDialogOpen, setIsSessionHistoryDialogOpen] =
-    useState(false);
 
   // Session management
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -197,9 +203,14 @@ export default function VoiceAgent() {
   }, [i18n.language]);
 
   // Sync PTT audio stream ref with final audio stream ref
+  // Monitor mixedAudioStream state to sync when it changes
   useEffect(() => {
     pttAudioStreamRef.current = finalAudioStreamRef.current;
-  }, [pttAudioStreamRef]);
+  }, [pttAudioStreamRef, mixedAudioStream, isConnected]);
+
+  // Note: PTT/Toggle mode control is handled by usePTT hook via track.enabled
+  // RealtimeAPI automatically detects user interruption when microphone is enabled
+  // and user starts speaking, so no manual session.interrupt() calls are needed
 
   // Handle system audio errors
   useEffect(() => {
@@ -208,30 +219,48 @@ export default function VoiceAgent() {
     }
   }, [systemAudioHook.error]);
 
-  // Connect to Realtime API
-  const connect = async () => {
+  /**
+   * Connect to OpenAI Realtime API
+   *
+   * Establishes a WebRTC connection to OpenAI Realtime API using ephemeral key authentication.
+   * Sets up audio streams, transport, session, and event listeners.
+   *
+   * Per OpenAI API documentation:
+   * - Uses ephemeral keys for secure client-side authentication
+   * - Creates RealtimeAgent with system prompt instructions
+   * - Configures WebRTC transport with mixed audio stream
+   * - Sets up VAD configuration based on input mode
+   *
+   * @param initialHistory Optional initial conversation history to load into the session
+   * @throws Error if connection fails (API key, network, or audio device issues)
+   */
+  const connect = async (initialHistory?: RealtimeItem[]) => {
     if (isConnecting || isConnected) return;
 
     setIsConnecting(true);
     setError(null);
 
     try {
+      // Generate ephemeral key for secure authentication
+      // Per OpenAI API: ephemeral keys are scoped to a session and expire after use
       const ephemeralKey = await generateEphemeralKey();
 
       // Create agent with current system prompt
+      // Per OpenAI API: agent instructions define behavior and personality
       const agent = new RealtimeAgent({
         name: "Assistant",
         instructions: systemPrompt,
       });
 
       // Get microphone stream with device constraints and audio preprocessing
+      // Per Web Audio API best practices: enable echo cancellation, noise suppression, and AGC
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: selectedMicrophone
           ? {
               deviceId: { exact: selectedMicrophone },
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
+              echoCancellation: true, // Prevents acoustic feedback
+              noiseSuppression: true, // Filters background noise
+              autoGainControl: true, // Normalizes volume levels
             }
           : {
               echoCancellation: true,
@@ -256,11 +285,14 @@ export default function VoiceAgent() {
 
       // Store references for PTT control
       finalAudioStreamRef.current = finalStream;
+      // Sync PTT audio stream ref immediately
+      pttAudioStreamRef.current = finalStream;
       if (finalStream !== micStream) {
         setMixedAudioStream(finalStream);
       }
 
-      // Create custom WebRTC transport with the mixed audio stream
+      // Create WebRTC transport with the mixed audio stream
+      // Per OpenAI API: WebRTC provides low-latency bidirectional audio streaming
       const transport = new OpenAIRealtimeWebRTC({
         mediaStream: finalStream,
       });
@@ -269,40 +301,92 @@ export default function VoiceAgent() {
       transportRef.current = transport;
 
       // Create session with custom transport and VAD configuration
-      // PTT/Toggle modes disable automatic turn detection
+      // Per OpenAI API documentation:
+      // - model: "gpt-realtime" is the speech-to-speech model
+      // - transport: WebRTC transport handles audio streaming (automatically manages audio format)
+      // - config.audio.input.turnDetection: VAD configuration (null for PTT/Toggle modes = manual control)
+      // For PTT/Toggle modes, turnDetection is null to disable automatic turn ending
+      // This allows manual control - user must explicitly end turns
+      // 
+      // Note: Additional config options available (primarily for WebSocket transport):
+      // - config.inputAudioFormat: 'pcm16' | 'g711_ulaw' | 'g711_alaw' (default: 'pcm16')
+      // - config.outputAudioFormat: 'pcm16' | 'g711_ulaw' | 'g711_alaw' (default: 'pcm16')
+      // - config.inputAudioTranscription: { model: 'gpt-4o-mini-transcribe' }
+      // WebRTC transport automatically handles audio format conversion, so these are optional
+      const vadConfig = getVadConfig(vadMode, inputMode);
       const session = new RealtimeSession(agent, {
         model: "gpt-realtime",
         transport: transport,
         config: {
           audio: {
             input: {
-              // Only include turnDetection when in always_on mode
-              // Omitting it entirely disables VAD for PTT/Toggle modes
-              ...(inputMode === "always_on" && {
-                turnDetection: getVadConfig(vadMode),
-              }),
+              // Conditionally include turnDetection to avoid destructuring errors
+              // When null (PTT/Toggle modes), VAD is disabled and turns won't auto-end
+              // Per OpenAI API: turnDetection can be semantic_vad or server_vad config
+              ...(vadConfig !== null && { turnDetection: vadConfig }),
             },
           },
         },
       });
 
+      // Connect to OpenAI Realtime API
+      // Per OpenAI API: connection establishes WebRTC peer connection
       await session.connect({ apiKey: ephemeralKey });
 
-      // Generate session ID for this connection
-      const sessionId = generateSessionId();
-      setCurrentSessionId(sessionId);
+      // Use existing session ID if available (from loaded session), otherwise generate new one
+      const sessionId = currentSessionId || generateSessionId();
+      if (!currentSessionId) {
+        setCurrentSessionId(sessionId);
+      }
 
       // Set up conversation history listener
+      // IMPORTANT: Per OpenAI API docs, the recommended order is:
+      //   1. await session.connect({ apiKey: '<client-api-key>' });
+      //   2. session.on('history_updated', (history) => { ... });
+      //   3. session.updateHistory([...]); // if needed
+      // The history_updated listener must be set up BEFORE calling updateHistory()
+      // to ensure we capture all history updates, including those triggered by updateHistory()
+      // https://openai.github.io/openai-agents-js/ja/guides/voice-agents/build/#%E4%BC%9A%E8%A9%B1%E5%B1%A5%E6%AD%B4%E3%81%AE%E7%AE%A1%E7%90%86
+      // https://openai.github.io/openai-agents-js/openai/agents/realtime/classes/realtimesession/
       session.on("history_updated", (history: RealtimeItem[]) => {
+        // Log for debugging (only in development)
+        if (process.env.NODE_ENV === "development") {
+          console.log("[VoiceAgent] History updated:", {
+            historyLength: history.length,
+            inputMode,
+            items: history.map((item, index) => ({
+              index,
+              type: item.type,
+              role: isRealtimeMessageItem(item) ? item.role : undefined,
+              status: isRealtimeMessageItem(item) ? item.status : undefined,
+              hasContent: !!item.content,
+              contentType: Array.isArray(item.content) ? "array" : typeof item.content,
+            })),
+          });
+        }
+        
+        // Update local state with the full history from the session
+        // Per OpenAI API docs: history_updated returns the full history of the session
+        // We can also access session.history directly, but using the event parameter is more reliable
         setConversationHistory(history);
-        // Auto-save session history
-        if (sessionId) {
-          saveSession(sessionId, history);
+        
+        // DISABLED: Auto-save functionality removed
+        // Since session restoration is disabled, we don't need to save sessions
+        // This prevents accumulating potentially malformed data in localStorage
+        if (process.env.NODE_ENV === "development") {
+          console.log("[VoiceAgent] History updated (auto-save disabled):", {
+            historyLength: history.length,
+            sessionId,
+          });
         }
         // Auto-scroll is handled by ConversationHistory component
       });
 
       // Set up speech detection listeners for visual feedback
+      // Per OpenAI API: these events are fired by VAD when user speech is detected
+      // Note: These events may not be in the TypeScript type definitions yet,
+      // but they are documented in the OpenAI Realtime API and work at runtime
+      // Type assertion is used here to access these events until types are updated
       (session as any).on("input_audio_buffer.speech_started", () => {
         setIsListening(true);
       });
@@ -312,6 +396,7 @@ export default function VoiceAgent() {
       });
 
       // Set up AI speech listeners for feedback loop prevention
+      // Per OpenAI API: audio_start/audio_stopped/audio_interrupted events track AI speech lifecycle
       session.on("audio_start", () => {
         console.log("[Feedback Prevention] AI started speaking");
         setIsAISpeaking(true);
@@ -342,25 +427,124 @@ export default function VoiceAgent() {
         }
       });
 
+      // Set up error listener for session errors
+      // Per OpenAI API docs: session.on("error") handles connection and runtime errors
+      // Error handling follows OpenAI Realtime API error format patterns
+      session.on("error", (error: unknown) => {
+        // Log detailed error information for debugging (development only)
+        if (process.env.NODE_ENV === "development") {
+          const errorDetails: Record<string, unknown> = {
+            error,
+            errorType: typeof error,
+            errorString: String(error),
+            isError: error instanceof Error,
+          };
+          
+          if (error && typeof error === "object") {
+            errorDetails.errorConstructor = (error as { constructor?: { name?: string } }).constructor?.name;
+            try {
+              errorDetails.errorJSON = JSON.stringify(error, null, 2);
+            } catch {
+              errorDetails.errorJSON = "[Unable to stringify error]";
+            }
+          }
+          
+          if (error instanceof Error) {
+            errorDetails.errorStack = error.stack;
+            errorDetails.errorName = error.name;
+          }
+          
+          console.error("[VoiceAgent] Session error:", errorDetails);
+        }
+        
+        // Extract error message from various error formats
+        // Per OpenAI Realtime API: errors can be nested structures like error.error.error.message
+        // Also handles standard Error objects, string errors, and API error responses
+        let errorMessage = "An unknown session error occurred";
+        
+        if (error instanceof Error) {
+          // Standard Error object - use message or name
+          errorMessage = error.message || error.name || errorMessage;
+        } else if (typeof error === "string") {
+          // String error - use directly
+          errorMessage = error;
+        } else if (error && typeof error === "object") {
+          // Handle error objects that might have message, error, or other properties
+          const errorObj = error as Record<string, unknown>;
+          
+          // Check for nested error structure (OpenAI Realtime API format)
+          // Common patterns: error.error.error.message, error.error.message, error.message
+          let nestedError = errorObj;
+          let depth = 0;
+          const maxDepth = 3; // Prevent infinite loops
+          
+          while (
+            depth < maxDepth &&
+            nestedError.error &&
+            typeof nestedError.error === "object"
+          ) {
+            nestedError = nestedError.error as Record<string, unknown>;
+            depth++;
+          }
+          
+          // Try to extract message from various possible locations
+          const message = 
+            (nestedError.message as string) ||
+            (errorObj.message as string) ||
+            (errorObj.error as string) ||
+            (errorObj.reason as string) ||
+            (nestedError.code as string) ||
+            (errorObj.code as string) ||
+            (nestedError.type as string) ||
+            (errorObj.type as string);
+          
+          if (message && typeof message === "string") {
+            errorMessage = message;
+          } else {
+            // Check if object has any properties that might be useful
+            const keys = Object.keys(errorObj);
+            if (keys.length > 0) {
+              // Try to stringify, but provide fallback for empty objects
+              try {
+                const stringified = JSON.stringify(errorObj);
+                if (stringified !== "{}") {
+                  errorMessage = stringified;
+                }
+              } catch {
+                // If stringification fails, use default message
+              }
+            }
+          }
+        } else if (error !== null && error !== undefined) {
+          // Fallback: convert to string
+          errorMessage = String(error);
+        }
+        
+        setError(errorMessage);
+        // Don't automatically disconnect on error - let user decide
+        // Some errors may be recoverable (e.g., temporary network issues)
+        // Critical errors that require disconnection should be handled separately
+      });
+
       // Store references
       agentRef.current = agent;
       sessionRef.current = session;
 
-      // If there's existing conversation history (loaded from session history before connection),
-      // update the session with it
-      if (conversationHistory.length > 0) {
-        try {
-          session.updateHistory(conversationHistory);
-          console.log("Loaded conversation history into session");
-        } catch (error) {
-          console.error(
-            "Error loading conversation history into session:",
-            error
-          );
+      // DISABLED: Session restoration functionality removed to prevent API errors
+      // Always start with a fresh conversation without loading history
+      // This prevents "Missing required parameter" errors from malformed history items
+      if (process.env.NODE_ENV === "development") {
+        console.log("[VoiceAgent] Starting new conversation (history loading disabled)");
+        if (initialHistory && initialHistory.length > 0) {
+          console.log(`[VoiceAgent] Ignoring ${initialHistory.length} history items (loading disabled)`);
+        }
+        if (conversationHistory.length > 0) {
+          console.log(`[VoiceAgent] Ignoring ${conversationHistory.length} stored history items (loading disabled)`);
         }
       }
 
       // Initialize PTT state: disable tracks for PTT/Toggle modes on connection
+      // This ensures tracks are disabled before connection is marked as complete
       if (inputMode !== "always_on" && finalAudioStreamRef.current) {
         const audioTracks = finalAudioStreamRef.current.getAudioTracks();
         audioTracks.forEach((track) => {
@@ -369,6 +553,17 @@ export default function VoiceAgent() {
         console.log(
           "[PTT] Initialized with tracks disabled for PTT/Toggle mode"
         );
+      }
+
+      // Ensure PTT audio stream ref is synced before setting connected state
+      // This ensures usePTT hook can control the tracks immediately
+      pttAudioStreamRef.current = finalAudioStreamRef.current;
+
+      // Reset PTT state to inactive on connection
+      // This ensures PTT/Toggle modes start with microphone disabled
+      if (inputMode !== "always_on") {
+        setIsPTTActive(false);
+        console.log("[PTT] Reset PTT state to inactive on connection");
       }
 
       setIsConnected(true);
@@ -382,47 +577,91 @@ export default function VoiceAgent() {
   };
 
   // Clear conversation history
+  // MODIFIED: Only clears local state, does not call updateHistory()
+  // Since session restoration is disabled, we just reset the local state
   const clearHistory = () => {
+    // Update local state
     setConversationHistory([]);
-    if (sessionRef.current) {
-      try {
-        sessionRef.current.updateHistory([]);
-      } catch (error) {
-        console.error("Error clearing history:", error);
-      }
-    }
+    
     // Clear saved session when history is cleared
     if (currentSessionId) {
       setCurrentSessionId(null);
     }
+    
+    if (process.env.NODE_ENV === "development") {
+      console.log("[VoiceAgent] Cleared conversation history (local state only, session history loading disabled)");
+    }
   };
 
-  // Load a saved session
-  const handleLoadSession = (session: SavedSession) => {
-    setConversationHistory(session.history);
-    // Update session history in the current session if connected
-    if (sessionRef.current && isConnected) {
-      try {
-        sessionRef.current.updateHistory(session.history);
-      } catch (error) {
-        console.error("Error loading session history:", error);
-        setError("Failed to load session history");
-      }
+
+  // Handle sending text message
+  const handleSendMessage = async (message: string) => {
+    if (!sessionRef.current || !isConnected) {
+      throw new Error("Not connected to session");
+    }
+
+    if (!message.trim()) {
+      return;
+    }
+
+    try {
+      sessionRef.current.sendMessage(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      throw error;
+    }
+  };
+
+  // Handle manual interruption of AI speech
+  // Per OpenAI API docs: session.interrupt() manually interrupts AI speech generation
+  // This will trigger the audio_interrupted event, which is already handled above
+  // https://openai.github.io/openai-agents-js/ja/guides/voice-agents/build/#%E5%89%B2%E3%82%8A%E8%BE%BC%E3%81%BF
+  const handleInterrupt = () => {
+    if (!sessionRef.current || !isConnected) {
+      return;
+    }
+
+    try {
+      // Per OpenAI API: interrupt() stops AI speech generation and triggers audio_interrupted event
+      // The audio_interrupted event handler will update state and restore system audio
+      sessionRef.current.interrupt();
+      console.log("[VoiceAgent] Manually interrupted AI speech");
+    } catch (error) {
+      console.error("Error interrupting AI speech:", error);
+      setError("Failed to interrupt AI speech");
     }
   };
 
   // Update system prompt
+  // Per OpenAI API docs: use session.updateAgent() to update agent configuration during active session
   const updateSystemPrompt = () => {
     setSystemPrompt(tempPrompt);
     setIsPromptDialogOpen(false);
 
-    // If connected, update the agent's instructions
-    if (agentRef.current && isConnected) {
+    // If connected, update the agent's instructions using updateAgent() method
+    // Per OpenAI API: updateAgent() updates the agent configuration for the active session
+    if (sessionRef.current && agentRef.current && isConnected) {
       try {
-        agentRef.current.instructions = tempPrompt;
-        console.log("System prompt updated:", tempPrompt);
+        // Create updated agent with new instructions
+        const updatedAgent = new RealtimeAgent({
+          name: agentRef.current.name,
+          instructions: tempPrompt,
+        });
+        
+        // Update agent in session using official API method
+        sessionRef.current.updateAgent(updatedAgent);
+        
+        // Update local agent reference
+        agentRef.current = updatedAgent;
+        
+        if (process.env.NODE_ENV === "development") {
+          console.log("[VoiceAgent] Agent updated via updateAgent():", {
+            name: updatedAgent.name,
+            instructionsLength: updatedAgent.instructions.length,
+          });
+        }
       } catch (error) {
-        console.error("Error updating system prompt:", error);
+        console.error("Error updating agent via updateAgent():", error);
         setError("Failed to update system prompt");
       }
     }
@@ -448,14 +687,19 @@ export default function VoiceAgent() {
     const template = SYSTEM_PROMPT_TEMPLATES.find((t) => t.id === templateId);
     if (template) {
       setSelectedTemplateId(templateId);
-      setTempPrompt(template.prompt);
+      setSystemPrompt(template.prompt);
+      // Update input mode based on template recommendation
+      setInputMode(template.recommendedInputMode);
     }
   };
 
   // Disconnect from Realtime API
+  // Per OpenAI API docs: session.close() closes the connection and cleans up resources
   const disconnect = async () => {
     if (sessionRef.current) {
       try {
+        // Note: close() method may not be in TypeScript type definitions yet,
+        // but it's available in the SDK. Type assertion is used until types are updated
         await (sessionRef.current as any).close?.();
       } catch (error) {
         console.error("Disconnect error:", error);
@@ -598,10 +842,13 @@ export default function VoiceAgent() {
   }, [selectedMicrophone]); // Only depend on selectedMicrophone, not isTestingMicrophone
 
   // Cleanup on unmount
+  // Remove all event listeners and close session connection
   useEffect(() => {
     return () => {
       if (sessionRef.current) {
         try {
+          // Note: close() method may not be in TypeScript type definitions yet,
+          // but it's available in the SDK. Type assertion is used until types are updated
           (sessionRef.current as any).close?.();
         } catch (error) {
           console.error("Cleanup error:", error);
@@ -645,6 +892,10 @@ export default function VoiceAgent() {
             onInputModeChange={setInputMode}
             onConnect={connect}
             onDisconnect={disconnect}
+            onInterrupt={handleInterrupt}
+            templates={SYSTEM_PROMPT_TEMPLATES}
+            selectedTemplateId={selectedTemplateId}
+            onTemplateSelect={handleTemplateSelect}
           />
 
           {/* Error Display */}
@@ -665,20 +916,55 @@ export default function VoiceAgent() {
         </CardContent>
       </Card>
 
+      {/* System Prompt Display (Separate from conversation history) */}
+      {isConnected && systemPrompt && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                {t("conversation.systemPromptTitle")}
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openPromptDialog}
+                className="gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                {t("common.edit")}
+              </Button>
+            </div>
+            <CardDescription>
+              {t("conversation.systemPromptDescription")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-48 w-full border rounded-md bg-muted">
+              <div className="p-4">
+                <pre className="text-sm font-mono whitespace-pre-wrap break-words text-foreground/90">
+                  {systemPrompt}
+                </pre>
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Conversation History */}
       <ConversationHistory
         history={conversationHistory}
         isConnected={isConnected}
         onClearHistory={clearHistory}
-        onViewSessions={() => setIsSessionHistoryDialogOpen(true)}
       />
 
-      {/* Session History List Dialog */}
-      <SessionHistoryList
-        open={isSessionHistoryDialogOpen}
-        onOpenChange={setIsSessionHistoryDialogOpen}
-        onLoadSession={handleLoadSession}
-      />
+      {/* Text Input */}
+      {isConnected && (
+        <TextInput
+          isConnected={isConnected}
+          onSendMessage={handleSendMessage}
+        />
+      )}
 
       {/* System Prompt Dialog */}
       <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>

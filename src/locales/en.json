@@ -14,6 +14,7 @@
     "start": "Start",
     "stop": "Stop",
     "change": "Change",
+    "edit": "Edit",
     "dismiss": "Dismiss",
     "tryAgain": "Try Again",
     "enabled": "Enabled",
@@ -40,7 +41,11 @@
       "toggle": "Toggle",
       "alwaysOnDesc": "Auto detect",
       "pushToTalkDesc": "Hold Space",
-      "toggleDesc": "Press Space"
+      "toggleDesc": "Press Space",
+      "pushToTalkHint": "Hold Space key to activate microphone",
+      "toggleHint": "Press Space key to toggle microphone on/off",
+      "microphoneOn": "Microphone: ON",
+      "microphoneOff": "Microphone: OFF"
     }
   },
   "audio": {
@@ -112,6 +117,7 @@
     "placeholder": "Enter the system prompt for the AI assistant...",
     "templateLabel": "Select Template",
     "templatePlaceholder": "Select a template",
+    "templateDescription": "Choose a system prompt template optimized for your use case",
     "recommendedInputMode": "Recommended Input Mode",
     "recommendedAudioSource": "Recommended Audio Source",
     "whenToUse": "When to Use",
@@ -144,7 +150,10 @@
     "messageCount_one": "{{count}} message",
     "messageCount_other": "{{count}} messages",
     "sessionHistory": "Session History",
-    "viewSessions": "View Sessions"
+    "viewSessions": "View Sessions",
+    "systemPrompt": "System Prompt",
+    "systemPromptTitle": "Current System Prompt",
+    "systemPromptDescription": "The system prompt used for this session"
   },
   "sessionHistory": {
     "title": "Session History",
@@ -191,6 +200,15 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "textInput": {
+    "label": "Text Input",
+    "description": "Send text messages to the AI assistant",
+    "placeholder": "Type a message...",
+    "placeholderDisabled": "Connect to enable text input",
+    "connectToEnable": "Connect to enable text input",
+    "sendButton": "Send",
+    "sendButtonDisabled": "Send (Connect to enable)"
   },
   "tutorial": {
     "title": "Tutorial",

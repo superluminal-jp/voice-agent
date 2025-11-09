@@ -14,6 +14,7 @@
     "start": "開始",
     "stop": "停止",
     "change": "変更",
+    "edit": "編集",
     "dismiss": "閉じる",
     "tryAgain": "再試行",
     "enabled": "有効",
@@ -40,7 +41,11 @@
       "toggle": "トグル",
       "alwaysOnDesc": "自動検出",
       "pushToTalkDesc": "スペースキーを長押し",
-      "toggleDesc": "スペースキーを押す"
+      "toggleDesc": "スペースキーを押す",
+      "pushToTalkHint": "スペースキーを長押ししてマイクを有効化",
+      "toggleHint": "スペースキーを押してマイクのオン/オフを切り替え",
+      "microphoneOn": "マイク: オン",
+      "microphoneOff": "マイク: オフ"
     }
   },
   "audio": {
@@ -112,6 +117,7 @@
     "placeholder": "AIアシスタントのシステムプロンプトを入力...",
     "templateLabel": "テンプレートを選択",
     "templatePlaceholder": "テンプレートを選択してください",
+    "templateDescription": "用途に最適化されたシステムプロンプトテンプレートを選択",
     "recommendedInputMode": "推奨入力モード",
     "recommendedAudioSource": "推奨オーディオソース",
     "whenToUse": "使いどき",
@@ -143,7 +149,10 @@
     "clearHistory": "クリア",
     "messageCount": "{{count}}件のメッセージ",
     "sessionHistory": "セッション履歴",
-    "viewSessions": "セッションを表示"
+    "viewSessions": "セッションを表示",
+    "systemPrompt": "システムプロンプト",
+    "systemPromptTitle": "現在使用中のシステムプロンプト",
+    "systemPromptDescription": "このセッションで使用されているシステムプロンプト"
   },
   "sessionHistory": {
     "title": "セッション履歴",
@@ -189,6 +198,15 @@
     "light": "ライト",
     "dark": "ダーク",
     "system": "システム"
+  },
+  "textInput": {
+    "label": "テキスト入力",
+    "description": "AIアシスタントにテキストメッセージを送信",
+    "placeholder": "メッセージを入力...",
+    "placeholderDisabled": "接続してテキスト入力を有効化",
+    "connectToEnable": "接続してテキスト入力を有効化",
+    "sendButton": "送信",
+    "sendButtonDisabled": "送信（接続して有効化）"
   },
   "tutorial": {
     "title": "チュートリアル",

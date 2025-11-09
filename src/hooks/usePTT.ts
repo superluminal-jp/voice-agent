@@ -91,6 +91,8 @@ export function usePTT(inputMode: InputMode, isConnected: boolean) {
     if (!isConnected) return;
 
     // Control via gain node (for mixed audio scenarios)
+    // Note: micGainRef is only available when system audio is enabled
+    // When system audio is disabled, we rely on track.enabled control below
     if (micGainRef.current) {
       if (inputMode === "always_on") {
         // Always on mode: mic always enabled
@@ -98,12 +100,21 @@ export function usePTT(inputMode: InputMode, isConnected: boolean) {
       } else {
         // PTT or Toggle mode: mic enabled only when PTT is active
         micGainRef.current.gain.value = isPTTActive ? 1.0 : 0;
+        console.log(
+          `[PTT Control] Mic gain set to ${isPTTActive ? 1.0 : 0} (mode: ${inputMode}, PTT: ${isPTTActive})`
+        );
       }
     }
+    // Note: When micGainRef is null (system audio disabled), track.enabled control below handles muting
 
     // Control audio tracks directly (more reliable for stopping transmission)
     if (audioStreamRef.current) {
       const audioTracks = audioStreamRef.current.getAudioTracks();
+      if (audioTracks.length === 0) {
+        console.warn("[PTT Control] No audio tracks found in stream");
+        return;
+      }
+      
       audioTracks.forEach((track) => {
         if (inputMode === "always_on") {
           track.enabled = true;
@@ -115,7 +126,12 @@ export function usePTT(inputMode: InputMode, isConnected: boolean) {
       console.log(
         `[PTT Control] Audio tracks ${
           isPTTActive || inputMode === "always_on" ? "enabled" : "disabled"
-        } (mode: ${inputMode}, PTT: ${isPTTActive})`
+        } (mode: ${inputMode}, PTT: ${isPTTActive}, tracks: ${audioTracks.length})`
+      );
+    } else if (isConnected) {
+      // Log warning if audio stream is not available when connected
+      console.warn(
+        `[PTT Control] Audio stream ref not available (mode: ${inputMode}, connected: ${isConnected})`
       );
     }
   }, [isPTTActive, inputMode, isConnected]);

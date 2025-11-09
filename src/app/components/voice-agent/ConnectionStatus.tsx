@@ -5,9 +5,11 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { Mic, Phone, PhoneOff, Settings, History } from "lucide-react";
+import { Mic, Phone, PhoneOff, Settings, History, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { InputMode } from "@/types/voice-agent";
+import { SystemPromptTemplateSelector } from "./SystemPromptTemplateSelector";
+import type { SystemPromptTemplate } from "@/lib/system-prompt-templates";
 
 interface ConnectionStatusProps {
   isConnected: boolean;
@@ -24,6 +26,11 @@ interface ConnectionStatusProps {
   onInputModeChange?: (mode: InputMode) => void;
   onConnect: () => void;
   onDisconnect: () => void;
+  onInterrupt?: () => void;
+  // Template selector props
+  templates?: SystemPromptTemplate[];
+  selectedTemplateId?: string;
+  onTemplateSelect?: (templateId: string) => void;
 }
 
 export function ConnectionStatus({
@@ -41,6 +48,10 @@ export function ConnectionStatus({
   onInputModeChange,
   onConnect,
   onDisconnect,
+  onInterrupt,
+  templates,
+  selectedTemplateId,
+  onTemplateSelect,
 }: ConnectionStatusProps) {
   const { t } = useTranslation();
 
@@ -70,6 +81,17 @@ export function ConnectionStatus({
           <Phone className="h-6 w-6" strokeWidth={2} />
           {t("common.connect")}
         </Button>
+
+        {/* System Prompt Template Selector */}
+        {templates && selectedTemplateId && onTemplateSelect && (
+          <SystemPromptTemplateSelector
+            templates={templates}
+            selectedTemplateId={selectedTemplateId}
+            onTemplateSelect={onTemplateSelect}
+            onInputModeChange={onInputModeChange}
+            disabled={isConnecting}
+          />
+        )}
 
         {/* Input Mode Quick Switcher */}
         {onInputModeChange && (
@@ -209,57 +231,106 @@ export function ConnectionStatus({
   return (
     <div className="flex flex-col items-center gap-8 py-8">
       {/* Large Microphone Button with Monochrome Audio Level Feedback */}
-      <div className="relative flex items-center justify-center">
-        {/* Outer container with border */}
-        <div
-          className="w-24 h-24 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-150 relative overflow-visible"
-          style={{
-            transform: `scale(${style.scale})`,
-            borderWidth: `${style.borderWidth}px`,
-            opacity: style.brightness,
-            boxShadow:
-              style.shadowIntensity > 0
-                ? `0 0 ${style.shadowIntensity}px rgba(0, 0, 0, ${
-                    0.2 + (audioLevel / 100) * 0.3
-                  })`
-                : "none",
-          }}
-        >
-          {/* Microphone icon with audio level fill effect */}
-          <div className="relative w-12 h-12">
-            {/* Background microphone icon (always visible, muted) */}
-            <Mic
-              className="absolute inset-0 h-12 w-12 text-muted-foreground transition-all duration-150"
-              strokeWidth={2}
-              style={{
-                opacity: 0.3,
-              }}
-            />
-
-            {/* Foreground microphone icon (clipped by audio level) */}
-            <div
-              className="absolute left-0 right-0 bottom-0 overflow-hidden"
-              style={{
-                height: `${
-                  isMicActive ? getMicrophoneFillHeight(audioLevel) : 0
-                }%`,
-                transition: "height 0.1s ease-out",
-              }}
-            >
+      <div className="relative flex flex-col items-center gap-4">
+        <div className="relative flex items-center justify-center">
+          {/* Outer container with border */}
+          <div
+            className="w-24 h-24 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-150 relative overflow-visible"
+            style={{
+              transform: `scale(${style.scale})`,
+              borderWidth: `${style.borderWidth}px`,
+              opacity: style.brightness,
+              boxShadow:
+                style.shadowIntensity > 0
+                  ? `0 0 ${style.shadowIntensity}px rgba(0, 0, 0, ${
+                      0.2 + (audioLevel / 100) * 0.3
+                    })`
+                  : "none",
+            }}
+          >
+            {/* Microphone icon with audio level fill effect */}
+            <div className="relative w-12 h-12">
+              {/* Background microphone icon (always visible, muted) */}
               <Mic
-                className="absolute bottom-0 left-0 h-12 w-12 text-foreground transition-all duration-150"
-                strokeWidth={2 + (audioLevel / 100) * 1.5}
+                className="absolute inset-0 h-12 w-12 text-muted-foreground transition-all duration-150"
+                strokeWidth={2}
                 style={{
-                  opacity: style.brightness,
+                  opacity: 0.3,
                 }}
               />
+
+              {/* Foreground microphone icon (clipped by audio level) */}
+              <div
+                className="absolute left-0 right-0 bottom-0 overflow-hidden"
+                style={{
+                  height: `${
+                    isMicActive ? getMicrophoneFillHeight(audioLevel) : 0
+                  }%`,
+                  transition: "height 0.1s ease-out",
+                }}
+              >
+                <Mic
+                  className="absolute bottom-0 left-0 h-12 w-12 text-foreground transition-all duration-150"
+                  strokeWidth={2 + (audioLevel / 100) * 1.5}
+                  style={{
+                    opacity: style.brightness,
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Microphone Status Badge - Show for PTT/Toggle modes */}
+        {(inputMode === "push_to_talk" || inputMode === "toggle") && (
+          <div
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              isMicActive
+                ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30"
+                : "bg-muted text-muted-foreground border border-border"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className={`h-2 w-2 rounded-full transition-all duration-200 ${
+                  isMicActive
+                    ? "bg-green-500 animate-pulse"
+                    : "bg-muted-foreground"
+                }`}
+              />
+              <span>
+                {isMicActive
+                  ? t("connection.inputMode.microphoneOn")
+                  : t("connection.inputMode.microphoneOff")}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Input Mode Hint - Show instruction for PTT/Toggle modes */}
+        {(inputMode === "push_to_talk" || inputMode === "toggle") && (
+          <div className="text-xs text-muted-foreground text-center max-w-xs">
+            {inputMode === "push_to_talk"
+              ? t("connection.inputMode.pushToTalkHint")
+              : t("connection.inputMode.toggleHint")}
+          </div>
+        )}
       </div>
 
       {/* Secondary actions */}
       <div className="flex items-center gap-2">
+        {/* Interrupt button - only show when AI is speaking */}
+        {isAISpeaking && onInterrupt && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onInterrupt}
+            className="gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+          >
+            <Square className="h-4 w-4" />
+            {t("common.stop")}
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -268,15 +339,6 @@ export function ConnectionStatus({
         >
           <Mic className="h-4 w-4" />
           {t("audio.settings")}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onSystemPromptClick}
-          className="gap-2"
-        >
-          <Settings className="h-4 w-4" />
-          {t("systemPrompt.title")}
         </Button>
         <Button
           variant="destructive"

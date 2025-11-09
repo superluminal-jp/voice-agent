@@ -24,6 +24,9 @@ export function ErrorAlert({
 }: ErrorAlertProps) {
   const { t } = useTranslation();
 
+  // Ensure error is a string for display and includes checks
+  const errorString = typeof error === "string" ? error : String(error);
+
   return (
     <Alert variant="destructive" className="border-destructive/50">
       <AlertDescription className="space-y-3">
@@ -36,12 +39,12 @@ export function ErrorAlert({
           <div className="flex-1 space-y-2">
             <p className="font-medium">{t("error.title")}</p>
             <div className="text-sm whitespace-pre-wrap leading-relaxed">
-              {error}
+              {errorString}
             </div>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 pt-2 border-t border-destructive/20">
-          {error.includes("system audio") && onRetrySystemAudio && (
+          {errorString.includes("system audio") && onRetrySystemAudio && (
             <Button
               variant="outline"
               size="sm"
@@ -52,9 +55,9 @@ export function ErrorAlert({
               {t("common.tryAgain")}
             </Button>
           )}
-          {(error.includes("microphone") ||
-            error.includes("permission") ||
-            error.includes("device")) &&
+          {(errorString.includes("microphone") ||
+            errorString.includes("permission") ||
+            errorString.includes("device")) &&
             onRefreshDevices && (
               <Button
                 variant="outline"
