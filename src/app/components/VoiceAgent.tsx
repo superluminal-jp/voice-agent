@@ -145,7 +145,9 @@ export default function VoiceAgent() {
       // Toggle mode: switch on first press (ignore repeats)
       if (!event.repeat && isConnected) {
         setIsPTTActive(!isPTTActive);
-        console.log(`[PTT] Toggled - now ${!isPTTActive ? "active" : "inactive"}`);
+        console.log(
+          `[PTT] Toggled - now ${!isPTTActive ? "active" : "inactive"}`
+        );
       }
     }
   };
@@ -396,6 +398,8 @@ export default function VoiceAgent() {
       if (Array.isArray(item.content)) {
         return item.content
           .map((c) => {
+            // Handle null or undefined content items
+            if (!c || typeof c !== "object") return "";
             if ("text" in c && c.text) return c.text;
             if ("transcript" in c && c.transcript) return c.transcript;
             return "";
@@ -505,7 +509,9 @@ export default function VoiceAgent() {
           audio: {
             input: {
               turnDetection:
-                inputMode === "always_on" ? VAD_PRESETS[vadMode] : (null as any),
+                inputMode === "always_on"
+                  ? VAD_PRESETS[vadMode]
+                  : (null as any),
             },
           },
         },
@@ -674,7 +680,9 @@ export default function VoiceAgent() {
     } else {
       // PTT or Toggle mode: mic enabled only when PTT is active
       micGainRef.current.gain.value = isPTTActive ? 1.0 : 0;
-      console.log(`[PTT Control] Microphone ${isPTTActive ? "enabled" : "muted"}`);
+      console.log(
+        `[PTT Control] Microphone ${isPTTActive ? "enabled" : "muted"}`
+      );
     }
   }, [isPTTActive, inputMode]);
 
@@ -747,9 +755,7 @@ export default function VoiceAgent() {
               {isConnected && inputMode !== "always_on" && (
                 <Badge
                   variant={isPTTActive ? "default" : "outline"}
-                  className={`gap-1 ${
-                    isPTTActive ? "bg-blue-600" : ""
-                  }`}
+                  className={`gap-1 ${isPTTActive ? "bg-blue-600" : ""}`}
                 >
                   <Mic className="h-3 w-3" />
                   {inputMode === "push_to_talk"
@@ -1121,7 +1127,9 @@ export default function VoiceAgent() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="always_on">Always On (Auto VAD)</SelectItem>
+                  <SelectItem value="always_on">
+                    Always On (Auto VAD)
+                  </SelectItem>
                   <SelectItem value="push_to_talk">
                     Push to Talk (Space Key)
                   </SelectItem>
@@ -1134,12 +1142,12 @@ export default function VoiceAgent() {
                   responds when you stop speaking.
                 </div>
                 <div>
-                  <strong>Push to Talk:</strong> Hold Space key to transmit. Best
-                  for preventing unwanted responses.
+                  <strong>Push to Talk:</strong> Hold Space key to transmit.
+                  Best for preventing unwanted responses.
                 </div>
                 <div>
-                  <strong>Toggle:</strong> Press Space to start/stop transmission.
-                  Like a walkie-talkie.
+                  <strong>Toggle:</strong> Press Space to start/stop
+                  transmission. Like a walkie-talkie.
                 </div>
                 {inputMode !== "always_on" && (
                   <div className="pt-1 text-orange-600 font-medium">
