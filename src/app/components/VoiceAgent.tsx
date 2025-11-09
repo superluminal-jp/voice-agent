@@ -117,8 +117,52 @@ export default function VoiceAgent() {
     }
   };
 
+  // Check browser compatibility for system audio capture
+  const checkSystemAudioSupport = (): { supported: boolean; reason?: string } => {
+    // Check if getDisplayMedia is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      return {
+        supported: false,
+        reason: "Your browser doesn't support screen sharing."
+      };
+    }
+
+    // Check browser type
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isChrome = userAgent.includes("chrome") && !userAgent.includes("edg");
+    const isEdge = userAgent.includes("edg");
+    const isFirefox = userAgent.includes("firefox");
+    const isSafari = userAgent.includes("safari") && !userAgent.includes("chrome");
+
+    if (isSafari) {
+      return {
+        supported: false,
+        reason: "Safari doesn't support system audio capture. Please use Chrome, Edge, or Firefox."
+      };
+    }
+
+    if (isFirefox) {
+      return {
+        supported: true,
+        reason: "Firefox has limited support. If it doesn't work, try Chrome or Edge."
+      };
+    }
+
+    return { supported: true };
+  };
+
   // Capture system audio via screen sharing
   const captureSystemAudio = async () => {
+    // Clear any previous errors
+    setError(null);
+
+    // Check browser compatibility
+    const compatibility = checkSystemAudioSupport();
+    if (!compatibility.supported) {
+      setError(compatibility.reason || "Browser not supported");
+      return;
+    }
+
     try {
       // Request screen sharing with audio
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
@@ -133,19 +177,31 @@ export default function VoiceAgent() {
       // Extract only the audio track
       const audioTrack = displayStream.getAudioTracks()[0];
 
-      if (!audioTrack) {
-        throw new Error(
-          "No audio track found. Please ensure 'Share system audio' is checked when selecting the screen."
-        );
-      }
-
       // Stop the video track as we only need audio
       displayStream.getVideoTracks().forEach((track) => track.stop());
+
+      if (!audioTrack) {
+        // User didn't check "Share system audio" - this is not a critical error
+        console.warn("No audio track found. User may not have checked 'Share system audio'.");
+
+        setError(
+          "No system audio detected. Please try again and make sure to:\n" +
+          "1. Check the 'Share system audio' or 'Share tab audio' checkbox\n" +
+          "2. Select a tab/window that's actually playing audio\n" +
+          (compatibility.reason ? `\n${compatibility.reason}` : "")
+        );
+
+        setSystemAudioEnabled(false);
+        return;
+      }
 
       // Create a new stream with only audio
       const audioStream = new MediaStream([audioTrack]);
       setSystemAudioStream(audioStream);
       setSystemAudioEnabled(true);
+
+      // Clear any error messages on success
+      setError(null);
 
       // Listen for when the user stops sharing
       audioTrack.onended = () => {
@@ -157,9 +213,37 @@ export default function VoiceAgent() {
       console.log("System audio captured successfully");
     } catch (error) {
       console.error("Error capturing system audio:", error);
-      setError(
-        "Failed to capture system audio. Make sure to check 'Share system audio' when selecting the screen."
-      );
+
+      // Provide specific error messages based on the error type
+      if (error instanceof Error) {
+        if (error.name === "NotAllowedError") {
+          setError(
+            "Permission denied. Please allow screen sharing to capture system audio."
+          );
+        } else if (error.name === "NotFoundError") {
+          setError(
+            "No screen sharing source found. Please try again and select a screen or window."
+          );
+        } else if (error.name === "NotSupportedError") {
+          setError(
+            "System audio capture is not supported by your browser. " +
+            (compatibility.reason || "Try using Chrome or Edge for best results.")
+          );
+        } else {
+          setError(
+            `Failed to capture system audio: ${error.message}\n\n` +
+            "Tips:\n" +
+            "• Make sure to check 'Share system audio' in the dialog\n" +
+            "• Select a tab/window that's playing audio\n" +
+            "• Try Chrome or Edge for best compatibility"
+          );
+        }
+      } else {
+        setError(
+          "Failed to capture system audio. Make sure to check 'Share system audio' when selecting the screen."
+        );
+      }
+
       setSystemAudioEnabled(false);
     }
   };
@@ -518,7 +602,25 @@ export default function VoiceAgent() {
           {/* Error Display */}
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="space-y-2">
+                <div className="whitespace-pre-wrap">{error}</div>
+                {error.includes("system audio") && (
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setError(null);
+                        captureSystemAudio();
+                      }}
+                      className="gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Try Again
+                    </Button>
+                  </div>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -793,11 +895,40 @@ export default function VoiceAgent() {
                 </div>
                 <Alert>
                   <Info className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    <strong>How it works:</strong> Click "Start Capture", then
-                    select your screen/window and check "Share system audio" in
-                    the browser prompt. This captures ALL system audio including
-                    Zoom, Teams, music, etc.
+                  <AlertDescription className="text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <div>
+                          <strong>Step-by-step guide:</strong>
+                        </div>
+                        <ol className="list-decimal list-inside space-y-1 ml-2 mt-1">
+                          <li>Click "Start Capture" button above</li>
+                          <li>
+                            In the browser dialog, select the tab/window with audio
+                          </li>
+                          <li>
+                            <strong className="text-orange-600">
+                              ✓ Check "Share system audio" or "Share tab audio"
+                            </strong>
+                          </li>
+                          <li>Click "Share" to start capturing</li>
+                        </ol>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <strong>Note:</strong> System audio capture is{" "}
+                      <strong className="text-green-600">optional</strong>. The voice
+                      agent will work with your microphone only if system audio
+                      isn't available.
+                    </div>
+                    <div className="pt-2 border-t">
+                      <strong>Browser Support:</strong>
+                      <ul className="list-disc list-inside ml-2 mt-1">
+                        <li>✅ Chrome/Edge: Full support</li>
+                        <li>⚠️ Firefox: Limited support</li>
+                        <li>❌ Safari: Not supported</li>
+                      </ul>
+                    </div>
                   </AlertDescription>
                 </Alert>
               </div>
