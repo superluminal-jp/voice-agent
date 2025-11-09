@@ -5,7 +5,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { Mic, Phone, PhoneOff, Settings } from "lucide-react";
+import { Mic, Phone, PhoneOff, Settings, History } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { InputMode } from "@/types/voice-agent";
 
@@ -20,6 +20,7 @@ interface ConnectionStatusProps {
   inputAudioLevel?: number;
   onAudioSettingsClick: () => void;
   onSystemPromptClick: () => void;
+  onViewSessions?: () => void;
   onInputModeChange?: (mode: InputMode) => void;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -36,6 +37,7 @@ export function ConnectionStatus({
   inputAudioLevel = 0,
   onAudioSettingsClick,
   onSystemPromptClick,
+  onViewSessions,
   onInputModeChange,
   onConnect,
   onDisconnect,
@@ -98,6 +100,17 @@ export function ConnectionStatus({
 
         {/* Secondary actions */}
         <div className="flex items-center gap-3">
+          {onViewSessions && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onViewSessions}
+              className="gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-transparent"
+            >
+              <History className="h-4 w-4" />
+              {t("conversation.viewSessions")}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

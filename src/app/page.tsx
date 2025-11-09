@@ -12,7 +12,7 @@ export default function Home() {
   const { t } = useTranslation();
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-white to-gray-100 dark:from-black dark:to-gray-900">
+    <main className="min-h-screen bg-background">
       <div className="container mx-auto py-8">
         {/* Header with utility buttons in top right */}
         <div className="relative mb-8">

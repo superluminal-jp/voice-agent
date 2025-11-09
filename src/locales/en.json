@@ -142,7 +142,32 @@
     "hideHistory": "Hide History",
     "clearHistory": "Clear",
     "messageCount_one": "{{count}} message",
-    "messageCount_other": "{{count}} messages"
+    "messageCount_other": "{{count}} messages",
+    "sessionHistory": "Session History",
+    "viewSessions": "View Sessions"
+  },
+  "sessionHistory": {
+    "title": "Session History",
+    "description": "View and manage your saved conversation sessions",
+    "empty": "No saved sessions",
+    "emptyDescription": "Your conversation sessions will be saved here automatically",
+    "noPreview": "No preview available",
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions",
+    "loadSession": "Load Session",
+    "deleteSession": "Delete",
+    "deleteAllSessions": "Delete All",
+    "confirmDelete": "Delete Session",
+    "confirmDeleteMessage": "Are you sure you want to delete this session? This action cannot be undone.",
+    "confirmDeleteAll": "Delete All Sessions",
+    "confirmDeleteAllMessage": "Are you sure you want to delete all sessions? This action cannot be undone.",
+    "sessionLoaded": "Session loaded",
+    "sessionDeleted": "Session deleted",
+    "allSessionsDeleted": "All sessions deleted",
+    "lastUpdated": "Last updated",
+    "createdAt": "Created",
+    "messages": "messages",
+    "autoSaveNote": "Note: Sessions are automatically saved to your browser's local storage. They may be cleared if you clear your browser data."
   },
   "onboarding": {
     "welcome": "Welcome to Voice Agent",

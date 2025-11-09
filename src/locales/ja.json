@@ -141,7 +141,31 @@
     "showHistory": "履歴を表示",
     "hideHistory": "履歴を非表示",
     "clearHistory": "クリア",
-    "messageCount": "{{count}}件のメッセージ"
+    "messageCount": "{{count}}件のメッセージ",
+    "sessionHistory": "セッション履歴",
+    "viewSessions": "セッションを表示"
+  },
+  "sessionHistory": {
+    "title": "セッション履歴",
+    "description": "保存された会話セッションを表示・管理します",
+    "empty": "保存されたセッションがありません",
+    "emptyDescription": "会話セッションは自動的にここに保存されます",
+    "noPreview": "プレビューなし",
+    "sessionCount": "{{count}}件のセッション",
+    "loadSession": "セッションを読み込む",
+    "deleteSession": "削除",
+    "deleteAllSessions": "すべて削除",
+    "confirmDelete": "セッションを削除",
+    "confirmDeleteMessage": "このセッションを削除してもよろしいですか？この操作は取り消せません。",
+    "confirmDeleteAll": "すべてのセッションを削除",
+    "confirmDeleteAllMessage": "すべてのセッションを削除してもよろしいですか？この操作は取り消せません。",
+    "sessionLoaded": "セッションを読み込みました",
+    "sessionDeleted": "セッションを削除しました",
+    "allSessionsDeleted": "すべてのセッションを削除しました",
+    "lastUpdated": "最終更新",
+    "createdAt": "作成日時",
+    "messages": "件のメッセージ",
+    "autoSaveNote": "注意: セッションはブラウザのローカルストレージに自動保存されます。ブラウザのデータをクリアすると削除される可能性があります。"
   },
   "onboarding": {
     "welcome": "ボイスエージェントへようこそ",

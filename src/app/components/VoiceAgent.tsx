@@ -64,12 +64,18 @@ import { useAudioLevel } from "@/hooks/useAudioLevel";
 import { ConnectionStatus } from "./voice-agent/ConnectionStatus";
 import { ErrorAlert } from "./voice-agent/ErrorAlert";
 import { ConversationHistory } from "./voice-agent/ConversationHistory";
+import { SessionHistoryList } from "./voice-agent/SessionHistoryList";
 import { useTranslation } from "react-i18next";
 import {
   getSystemPromptTemplates,
   getTemplateById,
   type SystemPromptTemplate,
 } from "@/lib/system-prompt-templates";
+import {
+  saveSession,
+  generateSessionId,
+  type SavedSession,
+} from "@/lib/session-storage";
 
 export default function VoiceAgent() {
   const { t, i18n } = useTranslation();
@@ -93,6 +99,11 @@ export default function VoiceAgent() {
   const [selectedTemplateId, setSelectedTemplateId] =
     useState<string>("default");
   const [isAudioDialogOpen, setIsAudioDialogOpen] = useState(false);
+  const [isSessionHistoryDialogOpen, setIsSessionHistoryDialogOpen] =
+    useState(false);
+
+  // Session management
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   // Microphone test state
   const [isTestingMicrophone, setIsTestingMicrophone] = useState(false);
@@ -277,9 +288,17 @@ export default function VoiceAgent() {
 
       await session.connect({ apiKey: ephemeralKey });
 
+      // Generate session ID for this connection
+      const sessionId = generateSessionId();
+      setCurrentSessionId(sessionId);
+
       // Set up conversation history listener
       session.on("history_updated", (history: RealtimeItem[]) => {
         setConversationHistory(history);
+        // Auto-save session history
+        if (sessionId) {
+          saveSession(sessionId, history);
+        }
         // Auto-scroll is handled by ConversationHistory component
       });
 
@@ -327,6 +346,20 @@ export default function VoiceAgent() {
       agentRef.current = agent;
       sessionRef.current = session;
 
+      // If there's existing conversation history (loaded from session history before connection),
+      // update the session with it
+      if (conversationHistory.length > 0) {
+        try {
+          session.updateHistory(conversationHistory);
+          console.log("Loaded conversation history into session");
+        } catch (error) {
+          console.error(
+            "Error loading conversation history into session:",
+            error
+          );
+        }
+      }
+
       // Initialize PTT state: disable tracks for PTT/Toggle modes on connection
       if (inputMode !== "always_on" && finalAudioStreamRef.current) {
         const audioTracks = finalAudioStreamRef.current.getAudioTracks();
@@ -356,6 +389,24 @@ export default function VoiceAgent() {
         sessionRef.current.updateHistory([]);
       } catch (error) {
         console.error("Error clearing history:", error);
+      }
+    }
+    // Clear saved session when history is cleared
+    if (currentSessionId) {
+      setCurrentSessionId(null);
+    }
+  };
+
+  // Load a saved session
+  const handleLoadSession = (session: SavedSession) => {
+    setConversationHistory(session.history);
+    // Update session history in the current session if connected
+    if (sessionRef.current && isConnected) {
+      try {
+        sessionRef.current.updateHistory(session.history);
+      } catch (error) {
+        console.error("Error loading session history:", error);
+        setError("Failed to load session history");
       }
     }
   };
@@ -436,6 +487,7 @@ export default function VoiceAgent() {
     setIsListening(false);
     setIsPTTActive(false);
     setConversationHistory([]);
+    setCurrentSessionId(null);
   };
 
   // Load audio devices on mount
@@ -589,6 +641,7 @@ export default function VoiceAgent() {
             inputAudioLevel={inputAudioLevel}
             onAudioSettingsClick={() => setIsAudioDialogOpen(true)}
             onSystemPromptClick={openPromptDialog}
+            onViewSessions={() => setIsSessionHistoryDialogOpen(true)}
             onInputModeChange={setInputMode}
             onConnect={connect}
             onDisconnect={disconnect}
@@ -617,6 +670,14 @@ export default function VoiceAgent() {
         history={conversationHistory}
         isConnected={isConnected}
         onClearHistory={clearHistory}
+        onViewSessions={() => setIsSessionHistoryDialogOpen(true)}
+      />
+
+      {/* Session History List Dialog */}
+      <SessionHistoryList
+        open={isSessionHistoryDialogOpen}
+        onOpenChange={setIsSessionHistoryDialogOpen}
+        onLoadSession={handleLoadSession}
       />
 
       {/* System Prompt Dialog */}

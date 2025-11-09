@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Trash2, User, Bot } from "lucide-react";
+import { MessageSquare, Trash2, User, Bot, History } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getItemText } from "@/lib/realtime-api";
 import type { RealtimeItem } from "@openai/agents/realtime";
@@ -24,12 +24,14 @@ interface ConversationHistoryProps {
   history: RealtimeItem[];
   isConnected: boolean;
   onClearHistory: () => void;
+  onViewSessions?: () => void;
 }
 
 export function ConversationHistory({
   history,
   isConnected,
   onClearHistory,
+  onViewSessions,
 }: ConversationHistoryProps) {
   const { t } = useTranslation();
   const [showHistory, setShowHistory] = useState(true);
@@ -82,6 +84,16 @@ export function ConversationHistory({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {onViewSessions && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onViewSessions}
+              >
+                <History className="h-4 w-4 mr-1" />
+                {t("conversation.viewSessions")}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
