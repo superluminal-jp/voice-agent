@@ -1,0 +1,155 @@
+{
+  "common": {
+    "connect": "接続",
+    "disconnect": "切断",
+    "connecting": "接続中...",
+    "cancel": "キャンセル",
+    "done": "完了",
+    "save": "保存",
+    "update": "更新",
+    "clear": "クリア",
+    "refresh": "更新",
+    "hide": "非表示",
+    "show": "表示",
+    "start": "開始",
+    "stop": "停止",
+    "change": "変更",
+    "dismiss": "閉じる",
+    "tryAgain": "再試行",
+    "enabled": "有効",
+    "disabled": "無効",
+    "default": "デフォルト",
+    "you": "あなた",
+    "assistant": "アシスタント"
+  },
+  "app": {
+    "title": "ボイスエージェント",
+    "subtitle": "AIとの自然な会話",
+    "tutorial": "チュートリアル"
+  },
+  "connection": {
+    "status": {
+      "connected": "接続済み",
+      "disconnected": "切断済み",
+      "connecting": "接続中..."
+    },
+    "inputMode": {
+      "label": "入力モード",
+      "alwaysOn": "常時オン",
+      "pushToTalk": "プッシュトゥトーク",
+      "toggle": "トグル",
+      "alwaysOnDesc": "自動検出",
+      "pushToTalkDesc": "スペースキーを長押し",
+      "toggleDesc": "スペースキーを押す"
+    }
+  },
+  "audio": {
+    "settings": "オーディオ設定",
+    "devices": {
+      "title": "オーディオデバイス",
+      "description": "マイクとスピーカーを選択してください",
+      "microphone": "マイク",
+      "speaker": "スピーカー",
+      "selectMicrophone": "マイクを選択...",
+      "selectSpeaker": "スピーカーを選択...",
+      "testMicrophone": "マイクテスト",
+      "stopTest": "テスト停止",
+      "audioLevel": "オーディオレベル",
+      "deviceCount": "マイク{{micCount}}台、スピーカー{{speakerCount}}台"
+    },
+    "voiceDetection": {
+      "title": "音声検出",
+      "description": "AIが話し始めを検出する方法を設定します",
+      "sensitivity": "感度",
+      "conservative": "控えめ（推奨）",
+      "balanced": "バランス",
+      "responsive": "反応が速い",
+      "conservativeDesc": "話し終わるまで待ちます。不要な応答を減らします。",
+      "balancedDesc": "800msの無音検出による中程度の感度。",
+      "responsiveDesc": "素早い応答ですが、時々割り込むことがあります。",
+      "inputMode": "入力モード",
+      "alwaysOn": "常時オン（自動VAD）",
+      "pushToTalk": "プッシュトゥトーク（スペースキー）",
+      "toggle": "トグル（スペースキー）",
+      "alwaysOnDesc": "自動音声検出。話し終わるとAIが応答します。",
+      "pushToTalkDesc": "スペースキーを長押しして送信。不要な応答を防ぐのに最適です。",
+      "toggleDesc": "スペースキーを押して送信の開始/停止。トランシーバーのように。",
+      "inputModeWarning": "⚠️ 入力モードは接続前に設定する必要があります"
+    },
+    "systemAudio": {
+      "title": "システムオーディオキャプチャ",
+      "description": "他のアプリケーション（Zoom、Teamsなど）からオーディオをキャプチャします",
+      "capturing": "システムオーディオをキャプチャ中",
+      "captureDescription": "アプリ（Zoom、Teamsなど）からオーディオをキャプチャ",
+      "quickSetup": "クイックセットアップ:",
+      "quickSetupStep1": "上記の「開始」ボタンをクリック",
+      "quickSetupStep2": "オーディオがあるタブ/ウィンドウを選択",
+      "quickSetupStep3": "✓ 「システムオーディオを共有」または「タブオーディオを共有」にチェック",
+      "quickSetupStep4": "「共有」をクリックしてキャプチャを開始",
+      "note": "注意:",
+      "noteText": "システムオーディオキャプチャはオプションです。システムオーディオが利用できない場合、ボイスエージェントはマイクのみで動作します。",
+      "browserSupport": "ブラウザサポート:",
+      "browserChrome": "✅ Chrome/Edge: 完全サポート",
+      "browserFirefox": "⚠️ Firefox: 制限付きサポート",
+      "browserSafari": "❌ Safari: サポートなし"
+    },
+    "advanced": {
+      "title": "詳細情報",
+      "virtualAudioCables": "仮想オーディオケーブル",
+      "virtualAudioCablesDesc": "システムオーディオルーティングをより細かく制御するには、仮想オーディオソフトウェアをインストールしてください:",
+      "virtualAudioWindows": "Windows: VB-Cable、VoiceMeeter",
+      "virtualAudioMac": "macOS: BlackHole、Loopback",
+      "virtualAudioLinux": "Linux: PulseAudio仮想シンク",
+      "virtualAudioNote": "その後、上記のドロップダウンで仮想デバイスを選択してください。",
+      "deviceSelection": "デバイス選択",
+      "deviceSelectionDesc": "選択したマイクとスピーカーがボイスエージェントで使用されます。プロンプトが表示されたら、必ず権限を付与してください。"
+    }
+  },
+  "systemPrompt": {
+    "title": "システムプロンプトを編集",
+    "description": "システムプロンプトを編集して、AIアシスタントの動作と性格をカスタマイズします。",
+    "label": "システムプロンプト",
+    "placeholder": "AIアシスタントのシステムプロンプトを入力...",
+    "default": "あなたは親切なアシスタントです。",
+    "tips": "ヒント:",
+    "tip1": "アシスタントの役割と性格を具体的に指定する",
+    "tip2": "制約やガイドラインを含める",
+    "tip3": "トーンとコミュニケーションスタイルを指定する",
+    "tip4": "ドメイン固有の知識やコンテキストを追加する",
+    "updateButton": "システムプロンプトを更新"
+  },
+  "conversation": {
+    "title": "会話履歴",
+    "empty": "まだ会話がありません",
+    "emptyDescription": "話し始めると、ここに会話履歴が表示されます",
+    "description": "AIと話すと、ここに会話が表示されます",
+    "showHistory": "履歴を表示",
+    "hideHistory": "履歴を非表示",
+    "clearHistory": "クリア",
+    "messageCount": "{{count}}件のメッセージ"
+  },
+  "onboarding": {
+    "welcome": "ボイスエージェントへようこそ",
+    "welcomeDescription": "AIとのリアルタイム音声会話を開始します。接続をクリックして開始してください。",
+    "currentSettings": "現在の設定",
+    "vadSensitivity": "VAD感度:",
+    "quickTips": "クイックヒント:",
+    "tip1": "接続前にマイクが動作していることを確認してください",
+    "tip2AlwaysOn": "AIは自動的に話し始めを検出します",
+    "tip2PushToTalk": "スペースキーを長押しして音声を送信します",
+    "tip2Toggle": "スペースキーを押してマイクのオン/オフを切り替えます",
+    "tip3": "システムプロンプトを編集してAIの動作をカスタマイズできます",
+    "configureAudio": "オーディオを設定",
+    "editSystemPrompt": "システムプロンプトを編集"
+  },
+  "error": {
+    "title": "エラーが発生しました",
+    "refreshDevices": "デバイスを更新"
+  },
+  "theme": {
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム"
+  }
+}
+

@@ -7,6 +7,7 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ErrorAlertProps {
   error: string;
@@ -21,6 +22,8 @@ export function ErrorAlert({
   onRetrySystemAudio,
   onRefreshDevices,
 }: ErrorAlertProps) {
+  const { t } = useTranslation();
+
   return (
     <Alert variant="destructive" className="border-destructive/50">
       <AlertDescription className="space-y-3">
@@ -31,7 +34,7 @@ export function ErrorAlert({
             </div>
           </div>
           <div className="flex-1 space-y-2">
-            <p className="font-medium">Error occurred</p>
+            <p className="font-medium">{t("error.title")}</p>
             <div className="text-sm whitespace-pre-wrap leading-relaxed">
               {error}
             </div>
@@ -46,7 +49,7 @@ export function ErrorAlert({
               className="gap-2 border-destructive/50 hover:bg-destructive/10"
             >
               <RefreshCw className="h-4 w-4" />
-              Try Again
+              {t("common.tryAgain")}
             </Button>
           )}
           {(error.includes("microphone") ||
@@ -60,7 +63,7 @@ export function ErrorAlert({
                 className="gap-2 border-destructive/50 hover:bg-destructive/10"
               >
                 <RefreshCw className="h-4 w-4" />
-                Refresh Devices
+                {t("error.refreshDevices")}
               </Button>
             )}
           <Button
@@ -69,7 +72,7 @@ export function ErrorAlert({
             onClick={onDismiss}
             className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
           >
-            Dismiss
+            {t("common.dismiss")}
           </Button>
         </div>
       </AlertDescription>

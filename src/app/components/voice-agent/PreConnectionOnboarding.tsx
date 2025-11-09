@@ -7,6 +7,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Volume2, Mic, Settings, Info } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { InputMode, VadMode, AudioDevices } from "@/types/voice-agent";
 
 interface PreConnectionOnboardingProps {
@@ -28,6 +29,30 @@ export function PreConnectionOnboarding({
   onAudioSettingsClick,
   onSystemPromptClick,
 }: PreConnectionOnboardingProps) {
+  const { t } = useTranslation();
+
+  const getInputModeLabel = (mode: InputMode) => {
+    switch (mode) {
+      case "always_on":
+        return t("connection.inputMode.alwaysOn");
+      case "push_to_talk":
+        return t("connection.inputMode.pushToTalk");
+      case "toggle":
+        return t("connection.inputMode.toggle");
+    }
+  };
+
+  const getTip2 = () => {
+    switch (inputMode) {
+      case "always_on":
+        return t("onboarding.tip2AlwaysOn");
+      case "push_to_talk":
+        return t("onboarding.tip2PushToTalk");
+      case "toggle":
+        return t("onboarding.tip2Toggle");
+    }
+  };
+
   return (
     <div className="space-y-6 py-6">
       {/* Welcome Section */}
@@ -38,9 +63,9 @@ export function PreConnectionOnboarding({
           </div>
         </div>
         <div>
-          <h3 className="text-lg font-semibold">Welcome to Voice Agent</h3>
+          <h3 className="text-lg font-semibold">{t("onboarding.welcome")}</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Start a real-time voice conversation with AI. Click Connect to begin.
+            {t("onboarding.welcomeDescription")}
           </p>
         </div>
       </div>
@@ -50,7 +75,7 @@ export function PreConnectionOnboarding({
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-medium flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            Current Settings
+            {t("onboarding.currentSettings")}
           </h4>
           <Button
             variant="ghost"
@@ -58,43 +83,39 @@ export function PreConnectionOnboarding({
             onClick={onAudioSettingsClick}
             className="h-7 text-xs"
           >
-            Change
+            {t("common.change")}
           </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Input Mode:</span>
+            <span className="text-muted-foreground">{t("connection.inputMode.label")}:</span>
             <Badge variant="outline" className="text-xs">
-              {inputMode === "always_on"
-                ? "Always On"
-                : inputMode === "push_to_talk"
-                ? "Push to Talk"
-                : "Toggle"}
+              {getInputModeLabel(inputMode)}
             </Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">VAD Sensitivity:</span>
+            <span className="text-muted-foreground">{t("onboarding.vadSensitivity")}</span>
             <Badge variant="outline" className="text-xs capitalize">
-              {vadMode}
+              {t(`audio.voiceDetection.${vadMode}`)}
             </Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Microphone:</span>
+            <span className="text-muted-foreground">{t("audio.devices.microphone")}:</span>
             <span className="text-xs font-medium truncate max-w-[150px]">
               {selectedMicrophone
                 ? audioDevices.microphones.find(
                     (d) => d.deviceId === selectedMicrophone
-                  )?.label || "Default"
-                : "Default"}
+                  )?.label || t("common.default")
+                : t("common.default")}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">System Audio:</span>
+            <span className="text-muted-foreground">{t("audio.systemAudio.title")}:</span>
             <Badge
               variant={systemAudioEnabled ? "default" : "outline"}
               className="text-xs"
             >
-              {systemAudioEnabled ? "Enabled" : "Disabled"}
+              {systemAudioEnabled ? t("common.enabled") : t("common.disabled")}
             </Badge>
           </div>
         </div>
@@ -109,7 +130,7 @@ export function PreConnectionOnboarding({
           className="gap-2"
         >
           <Mic className="h-4 w-4" />
-          Configure Audio
+          {t("onboarding.configureAudio")}
         </Button>
         <Button
           variant="outline"
@@ -118,7 +139,7 @@ export function PreConnectionOnboarding({
           className="gap-2"
         >
           <Settings className="h-4 w-4" />
-          Edit System Prompt
+          {t("onboarding.editSystemPrompt")}
         </Button>
       </div>
 
@@ -127,22 +148,11 @@ export function PreConnectionOnboarding({
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Quick Tips:</p>
+            <p className="font-medium text-foreground">{t("onboarding.quickTips")}</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>
-                Make sure your microphone is working before connecting
-              </li>
-              <li>
-                {inputMode === "always_on"
-                  ? "The AI will automatically detect when you speak"
-                  : inputMode === "push_to_talk"
-                  ? "Hold Space key to transmit your voice"
-                  : "Press Space key to toggle microphone on/off"}
-              </li>
-              <li>
-                You can customize the AI's behavior by editing the system
-                prompt
-              </li>
+              <li>{t("onboarding.tip1")}</li>
+              <li>{getTip2()}</li>
+              <li>{t("onboarding.tip3")}</li>
             </ul>
           </div>
         </div>

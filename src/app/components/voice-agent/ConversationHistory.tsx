@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, Trash2, User, Bot } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { getItemText } from "@/lib/realtime-api";
 import type { RealtimeItem } from "@openai/agents/realtime";
 
@@ -30,6 +31,7 @@ export function ConversationHistory({
   isConnected,
   onClearHistory,
 }: ConversationHistoryProps) {
+  const { t } = useTranslation();
   const [showHistory, setShowHistory] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -71,11 +73,11 @@ export function ConversationHistory({
           <div className="flex items-center gap-3">
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
-              Conversation History
+              {t("conversation.title")}
             </CardTitle>
             {history.length > 0 && (
               <Badge variant="secondary" className="text-xs">
-                {history.length} message{history.length !== 1 ? "s" : ""}
+                {t("conversation.messageCount", { count: history.length })}
               </Badge>
             )}
           </div>
@@ -85,7 +87,7 @@ export function ConversationHistory({
               size="sm"
               onClick={() => setShowHistory(!showHistory)}
             >
-              {showHistory ? "Hide" : "Show"} History
+              {showHistory ? t("conversation.hideHistory") : t("conversation.showHistory")}
             </Button>
             {history.length > 0 && (
               <Button
@@ -95,14 +97,14 @@ export function ConversationHistory({
                 className="text-destructive hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-1" />
-                Clear
+                {t("conversation.clearHistory")}
               </Button>
             )}
           </div>
         </div>
         {history.length === 0 && (
           <CardDescription>
-            Your conversation will appear here as you talk with the AI
+            {t("conversation.description")}
           </CardDescription>
         )}
       </CardHeader>
@@ -121,10 +123,10 @@ export function ConversationHistory({
                     </div>
                   </div>
                   <p className="font-medium text-foreground mb-1">
-                    No conversation yet
+                    {t("conversation.empty")}
                   </p>
                   <p className="text-sm">
-                    Start talking to see the conversation history here
+                    {t("conversation.emptyDescription")}
                   </p>
                 </div>
               ) : (
@@ -150,10 +152,10 @@ export function ConversationHistory({
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium">
                           {item.type === "message" && item.role === "user"
-                            ? "You"
+                            ? t("common.you")
                             : item.type === "message" &&
                               item.role === "assistant"
-                            ? "Assistant"
+                            ? t("common.assistant")
                             : item.type}
                         </span>
                         <Badge variant="outline" className="text-xs">

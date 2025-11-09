@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -25,6 +26,7 @@ import {
  */
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const { t } = useTranslation();
   const [mounted, setMounted] = React.useState(false);
 
   // Prevent hydration mismatch by only rendering after mount
@@ -51,19 +53,19 @@ export function ThemeToggle() {
         <SelectItem value="light">
           <div className="flex items-center gap-2">
             <Sun className="h-4 w-4" />
-            <span>ライト</span>
+            <span>{t("theme.light")}</span>
           </div>
         </SelectItem>
         <SelectItem value="dark">
           <div className="flex items-center gap-2">
             <Moon className="h-4 w-4" />
-            <span>ダーク</span>
+            <span>{t("theme.dark")}</span>
           </div>
         </SelectItem>
         <SelectItem value="system">
           <div className="flex items-center gap-2">
             <Monitor className="h-4 w-4" />
-            <span>システム</span>
+            <span>{t("theme.system")}</span>
           </div>
         </SelectItem>
       </SelectContent>

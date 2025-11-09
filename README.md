@@ -4,17 +4,20 @@ A minimalistic web interface for OpenAI's GPT Realtime API, featuring real-time 
 
 ## Features
 
-- 🎤 **Real-time Voice Conversations** - Natural voice interaction with AI
+- 🎤 **Real-time Voice Conversations** - Natural voice interaction with AI using OpenAI Realtime API
 - 🔒 **Client-side API Key Management** - Direct ephemeral token generation
 - 📝 **Live Transcript** - Real-time conversation display with history
 - 🎨 **Modern UI** - Built with shadcn/ui and Tailwind CSS
-- 🌙 **Dark Mode Support** - Automatic theme switching
+- 🌙 **Dark Mode Support** - Automatic theme switching with next-themes
 - 📱 **Responsive Design** - Works on desktop and mobile
-- ⚙️ **Customizable System Prompts** - Edit AI behavior and personality
+- ⚙️ **Customizable System Prompts** - Edit AI behavior and personality with live updates
 - 🗑️ **Conversation Management** - Clear history and toggle visibility
-- 🔊 **System Audio Capture** - Connect audio from Zoom, Teams, and other apps
+- 🔊 **System Audio Capture** - Capture audio from Zoom, Teams, and other apps via browser screen sharing
 - 🎚️ **Audio Device Selection** - Choose microphone and speaker devices
-- 🖥️ **Screen Sharing Audio** - Capture system audio via browser screen sharing
+- 🎯 **Multiple Input Modes** - Always On, Push-to-Talk, and Toggle modes
+- 🎚️ **VAD Configuration** - Adjustable voice activity detection sensitivity
+- 🔇 **Feedback Loop Prevention** - Automatic system audio muting during AI speech
+- 📊 **Audio Level Monitoring** - Visual feedback for microphone input levels
 
 ## Tech Stack
 
@@ -62,22 +65,22 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 5. **Manage History** - Toggle conversation visibility and clear history as needed
 6. **Disconnect** - Click "Disconnect" to end the session
 
+### Input Modes
+
+- **Always On** - Continuous listening with automatic voice activity detection (VAD)
+- **Push-to-Talk** - Hold Space key to transmit your voice
+- **Toggle** - Press Space key to toggle microphone on/off
+
 ### System Audio Integration
 
-Connect audio from apps like Zoom, Teams, Discord, and more:
+Capture audio from apps like Zoom, Teams, Discord, and more:
 
-1. **Quick Setup (Browser Screen Sharing)**
-   - Click "Audio Settings" button
-   - In "System Audio Capture" section, click "Start Capture"
-   - Select your screen/window and check "Share system audio"
-   - The Voice Agent will now capture all system audio
+1. Click "Audio Settings" button
+2. In "System Audio Capture" section, click "Start Capture"
+3. When prompted, select your screen/window and **check "Share system audio"**
+4. The Voice Agent will now capture all system audio
 
-2. **Advanced Setup (Virtual Audio Cables)**
-   - Install virtual audio software (VB-Cable, BlackHole, etc.)
-   - Select virtual device in Audio Settings
-   - Route app audio through virtual cables for better control
-
-📖 **See [SYSTEM_AUDIO_SETUP.md](./SYSTEM_AUDIO_SETUP.md) for detailed setup instructions and troubleshooting.**
+**Note**: System audio capture uses browser screen sharing. For app-specific audio routing, you can use virtual audio cables (VB-Cable, BlackHole, Loopback, etc.) and select them as your microphone input device.
 
 ## Architecture
 
@@ -116,32 +119,55 @@ Connect audio from apps like Zoom, Teams, Discord, and more:
 src/
 ├── app/
 │   ├── components/
-│   │   └── VoiceAgent.tsx         # Main voice agent component
-│   ├── layout.tsx                 # App layout and metadata
-│   ├── page.tsx                   # Home page
-│   └── globals.css                # Global styles
-├── components/ui/                 # shadcn/ui components
-│   ├── alert.tsx                  # Alert component
-│   ├── badge.tsx                  # Badge component
-│   ├── button.tsx                 # Button component
-│   ├── card.tsx                   # Card component
-│   ├── dialog.tsx                 # Dialog component
-│   ├── progress.tsx               # Progress component
-│   ├── scroll-area.tsx            # Scroll area component
-│   └── textarea.tsx               # Textarea component
+│   │   ├── VoiceAgent.tsx                    # Main voice agent component
+│   │   └── voice-agent/
+│   │       ├── AudioLevelIndicator.tsx       # Audio level visualization
+│   │       ├── ConnectionStatus.tsx          # Connection status and controls
+│   │       ├── ConversationHistory.tsx       # Conversation transcript display
+│   │       ├── ErrorAlert.tsx                # Error message display
+│   │       └── PreConnectionOnboarding.tsx   # Pre-connection onboarding UI
+│   ├── layout.tsx                            # App layout and metadata
+│   ├── page.tsx                              # Home page
+│   └── globals.css                           # Global styles
+├── components/
+│   ├── ui/                                   # shadcn/ui components
+│   │   ├── alert.tsx
+│   │   ├── badge.tsx
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── dialog.tsx
+│   │   ├── progress.tsx
+│   │   ├── scroll-area.tsx
+│   │   ├── select.tsx
+│   │   └── textarea.tsx
+│   ├── theme-provider.tsx                    # Theme provider for dark mode
+│   └── theme-toggle.tsx                      # Theme toggle component
+├── hooks/
+│   ├── useAudioDevices.ts                    # Audio device enumeration
+│   ├── useAudioLevel.ts                      # Audio level monitoring
+│   ├── usePTT.ts                             # Push-to-Talk keyboard handling
+│   └── useSystemAudio.ts                     # System audio capture
 ├── lib/
-│   └── utils.ts                   # Utility functions (cn helper)
-└── types/                         # TypeScript interfaces (empty)
+│   ├── audio-utils.ts                        # Audio mixing and utilities
+│   ├── realtime-api.ts                       # OpenAI Realtime API utilities
+│   ├── vad-config.ts                         # VAD configuration presets
+│   └── utils.ts                              # Utility functions (cn helper)
+└── types/
+    └── voice-agent.ts                        # TypeScript type definitions
 ```
 
 ### Key Implementation Details
 
 - **Real-time Communication** - Uses OpenAI's Realtime API with WebRTC transport
+- **Audio Processing** - Web Audio API for mixing microphone and system audio streams
+- **Push-to-Talk** - Dual-layer control (GainNode + MediaStreamTrack.enabled) for reliable PTT
+- **Feedback Prevention** - Automatic system audio muting during AI speech to prevent feedback loops
 - **Conversation Management** - Full conversation history with role-based display
 - **System Prompt Customization** - Live editing of AI behavior and personality
+- **VAD Configuration** - Configurable voice activity detection with multiple presets
 - **Error Recovery** - Comprehensive error handling with user-friendly messages
 - **Responsive Design** - Mobile-first approach with Tailwind CSS
-- **Component Architecture** - Modular UI components with shadcn/ui
+- **Component Architecture** - Modular UI components with shadcn/ui and custom hooks
 
 ## Deployment
 

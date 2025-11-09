@@ -6,6 +6,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Mic, Phone, PhoneOff, Settings } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { InputMode } from "@/types/voice-agent";
 
 interface ConnectionStatusProps {
@@ -39,18 +40,20 @@ export function ConnectionStatus({
   onConnect,
   onDisconnect,
 }: ConnectionStatusProps) {
+  const { t } = useTranslation();
+
   // When not connected, show prominent Connect button
   if (!isConnected && !isConnecting) {
     const inputModeLabels: Record<InputMode, string> = {
-      always_on: "Always On",
-      push_to_talk: "Push to Talk",
-      toggle: "Toggle",
+      always_on: t("connection.inputMode.alwaysOn"),
+      push_to_talk: t("connection.inputMode.pushToTalk"),
+      toggle: t("connection.inputMode.toggle"),
     };
 
     const inputModeDescriptions: Record<InputMode, string> = {
-      always_on: "Auto detect",
-      push_to_talk: "Hold Space",
-      toggle: "Press Space",
+      always_on: t("connection.inputMode.alwaysOnDesc"),
+      push_to_talk: t("connection.inputMode.pushToTalkDesc"),
+      toggle: t("connection.inputMode.toggleDesc"),
     };
 
     return (
@@ -63,28 +66,28 @@ export function ConnectionStatus({
           className="h-16 px-12 text-lg font-medium gap-3 rounded-full shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] bg-primary hover:bg-primary/95"
         >
           <Phone className="h-6 w-6" strokeWidth={2} />
-          Connect
+          {t("common.connect")}
         </Button>
 
         {/* Input Mode Quick Switcher */}
         {onInputModeChange && (
-          <div className="flex flex-col items-center gap-3 w-full max-w-md">
+          <div className="flex flex-col items-center gap-3 w-full max-w-2xl">
             <div className="text-xs text-muted-foreground font-medium">
-              Input Mode
+              {t("connection.inputMode.label")}
             </div>
             <div className="flex items-center gap-2 w-full">
               {(Object.keys(inputModeLabels) as InputMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => onInputModeChange(mode)}
-                  className={`flex-1 px-4 py-2.5 rounded-lg border transition-all duration-200 text-sm font-medium ${
+                  className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg border transition-all duration-200 text-sm font-medium ${
                     inputMode === mode
                       ? "border-primary bg-primary/10 text-primary shadow-sm"
                       : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
                   }`}
                 >
-                  <div className="font-medium">{inputModeLabels[mode]}</div>
-                  <div className="text-xs opacity-70 mt-0.5">
+                  <div className="font-medium whitespace-nowrap">{inputModeLabels[mode]}</div>
+                  <div className="text-xs opacity-70 mt-0.5 whitespace-nowrap">
                     {inputModeDescriptions[mode]}
                   </div>
                 </button>
@@ -102,7 +105,7 @@ export function ConnectionStatus({
             className="gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <Mic className="h-4 w-4" />
-            Audio Settings
+            {t("audio.settings")}
           </Button>
           <Button
             variant="ghost"
@@ -111,7 +114,7 @@ export function ConnectionStatus({
             className="gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-transparent"
           >
             <Settings className="h-4 w-4" />
-            System Prompt
+            {t("systemPrompt.title")}
           </Button>
         </div>
       </div>
@@ -129,7 +132,7 @@ export function ConnectionStatus({
           className="h-16 px-12 text-lg font-medium gap-3 rounded-full shadow-sm"
         >
           <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          Connecting...
+          {t("common.connecting")}
         </Button>
       </div>
     );
@@ -251,7 +254,7 @@ export function ConnectionStatus({
           className="gap-2"
         >
           <Mic className="h-4 w-4" />
-          Audio Settings
+          {t("audio.settings")}
         </Button>
         <Button
           variant="outline"
@@ -260,7 +263,7 @@ export function ConnectionStatus({
           className="gap-2"
         >
           <Settings className="h-4 w-4" />
-          System Prompt
+          {t("systemPrompt.title")}
         </Button>
         <Button
           variant="destructive"
@@ -269,7 +272,7 @@ export function ConnectionStatus({
           className="gap-2"
         >
           <PhoneOff className="h-4 w-4" />
-          Disconnect
+          {t("common.disconnect")}
         </Button>
       </div>
     </div>

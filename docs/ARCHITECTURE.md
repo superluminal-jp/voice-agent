@@ -112,7 +112,7 @@ graph TB
 
 ### VoiceAgent Component Structure
 
-The application follows a single-component architecture where `VoiceAgent.tsx` is the primary component.
+The application follows a modular component architecture where `VoiceAgent.tsx` is the primary component that orchestrates multiple sub-components and custom hooks.
 
 ```
 VoiceAgent Component
@@ -123,6 +123,12 @@ VoiceAgent Component
 │   ├── Audio State (devices, selectedDevices, systemAudio)
 │   ├── Input Control (inputMode, vadMode, isPTTActive)
 │   └── UI State (dialogs, visual indicators)
+│
+├── Custom Hooks
+│   ├── useAudioDevices() - Audio device enumeration
+│   ├── useSystemAudio() - System audio capture management
+│   ├── usePTT() - Push-to-Talk keyboard handling
+│   └── useAudioLevel() - Audio level monitoring
 │
 ├── Refs (Non-reactive)
 │   ├── sessionRef (RealtimeSession instance)
@@ -135,20 +141,22 @@ VoiceAgent Component
 ├── Core Functions
 │   ├── connect() - Establish API connection
 │   ├── disconnect() - Clean up and close session
-│   ├── generateEphemeralKey() - Get temporary API key
-│   ├── mixAudioStreams() - Combine audio sources
-│   ├── captureSystemAudio() - Get system audio via screen share
-│   ├── enumerateAudioDevices() - List audio devices
+│   ├── generateEphemeralKey() - Get temporary API key (from lib)
+│   ├── mixAudioStreams() - Combine audio sources (from lib)
+│   ├── captureSystemAudio() - Get system audio via screen share (via hook)
+│   ├── enumerateAudioDevices() - List audio devices (via hook)
 │   └── updateSystemPrompt() - Change AI behavior
 │
 ├── Event Handlers
-│   ├── Keyboard Events (handleKeyDown, handleKeyUp)
+│   ├── Keyboard Events (handled by usePTT hook)
 │   ├── Session Events (history_updated, audio_start, etc.)
 │   └── UI Events (button clicks, dropdown changes)
 │
 └── UI Components
-    ├── Connection Card (status, controls)
-    ├── Conversation History (transcript display)
+    ├── ConnectionStatus - Connection status and controls
+    ├── ConversationHistory - Transcript display
+    ├── ErrorAlert - Error message display
+    ├── AudioLevelIndicator - Audio level visualization
     ├── System Prompt Dialog (behavior customization)
     └── Audio Settings Dialog (device selection, VAD, PTT)
 ```
@@ -159,17 +167,64 @@ VoiceAgent Component
 
 **Primary Responsibilities**:
 - Session lifecycle management (connect/disconnect)
-- Audio stream capture and mixing
+- Orchestrating custom hooks and sub-components
 - OpenAI Realtime API integration
-- Push-to-Talk functionality
-- Voice Activity Detection configuration
-- Conversation history display
+- State management and coordination
 - Error handling and user feedback
 
 **Not Responsible For**:
+- Audio device enumeration (delegated to `useAudioDevices` hook)
+- System audio capture (delegated to `useSystemAudio` hook)
+- Push-to-Talk keyboard handling (delegated to `usePTT` hook)
+- Audio level monitoring (delegated to `useAudioLevel` hook)
 - UI component styling (delegated to shadcn/ui)
 - API endpoint implementation (uses OpenAI SDK)
 - Audio encoding/decoding (handled by WebRTC)
+
+#### Sub-Components
+
+**ConnectionStatus**:
+- Displays connection state and controls
+- Shows input mode status (Always On/PTT/Toggle)
+- Displays system audio capture status
+- Provides audio settings and system prompt access
+
+**ConversationHistory**:
+- Displays conversation transcript
+- Auto-scrolls to latest messages
+- Supports history clearing
+- Role-based message formatting
+
+**ErrorAlert**:
+- Displays error messages
+- Provides error recovery actions
+- User-friendly error descriptions
+
+**AudioLevelIndicator**:
+- Visual feedback for microphone input levels
+- Real-time audio level monitoring
+
+#### Custom Hooks
+
+**useAudioDevices**:
+- Enumerates available audio devices
+- Handles device permission requests
+- Manages device selection state
+
+**useSystemAudio**:
+- Manages system audio capture via screen sharing
+- Handles browser compatibility checks
+- Provides error handling for capture failures
+
+**usePTT**:
+- Handles keyboard events for Push-to-Talk
+- Manages PTT state (active/inactive)
+- Prevents conflicts with text input fields
+
+**useAudioLevel**:
+- Monitors audio stream levels
+- Calculates audio level percentages
+- Provides real-time level updates
 
 #### UI Components (shadcn/ui)
 

@@ -1,0 +1,156 @@
+{
+  "common": {
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "connecting": "Connecting...",
+    "cancel": "Cancel",
+    "done": "Done",
+    "save": "Save",
+    "update": "Update",
+    "clear": "Clear",
+    "refresh": "Refresh",
+    "hide": "Hide",
+    "show": "Show",
+    "start": "Start",
+    "stop": "Stop",
+    "change": "Change",
+    "dismiss": "Dismiss",
+    "tryAgain": "Try Again",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "default": "Default",
+    "you": "You",
+    "assistant": "Assistant"
+  },
+  "app": {
+    "title": "Voice Agent",
+    "subtitle": "Natural conversations with AI",
+    "tutorial": "Tutorial"
+  },
+  "connection": {
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "connecting": "Connecting..."
+    },
+    "inputMode": {
+      "label": "Input Mode",
+      "alwaysOn": "Always On",
+      "pushToTalk": "Push to Talk",
+      "toggle": "Toggle",
+      "alwaysOnDesc": "Auto detect",
+      "pushToTalkDesc": "Hold Space",
+      "toggleDesc": "Press Space"
+    }
+  },
+  "audio": {
+    "settings": "Audio Settings",
+    "devices": {
+      "title": "Audio Devices",
+      "description": "Select your microphone and speaker",
+      "microphone": "Microphone",
+      "speaker": "Speaker",
+      "selectMicrophone": "Select microphone...",
+      "selectSpeaker": "Select speaker...",
+      "testMicrophone": "Test Microphone",
+      "stopTest": "Stop Test",
+      "audioLevel": "Audio Level",
+      "deviceCount": "{{micCount}} microphone(s), {{speakerCount}} speaker(s)"
+    },
+    "voiceDetection": {
+      "title": "Voice Detection",
+      "description": "Configure how the AI detects when you're speaking",
+      "sensitivity": "Sensitivity",
+      "conservative": "Conservative (Recommended)",
+      "balanced": "Balanced",
+      "responsive": "Responsive",
+      "conservativeDesc": "Waits for you to finish speaking. Reduces unwanted responses.",
+      "balancedDesc": "Moderate sensitivity with 800ms silence detection.",
+      "responsiveDesc": "Fast responses, may interrupt occasionally.",
+      "inputMode": "Input Mode",
+      "alwaysOn": "Always On (Auto VAD)",
+      "pushToTalk": "Push to Talk (Space Key)",
+      "toggle": "Toggle (Space Key)",
+      "alwaysOnDesc": "Automatic voice detection. AI responds when you stop speaking.",
+      "pushToTalkDesc": "Hold Space key to transmit. Best for preventing unwanted responses.",
+      "toggleDesc": "Press Space to start/stop transmission. Like a walkie-talkie.",
+      "inputModeWarning": "⚠️ Input mode must be set before connecting"
+    },
+    "systemAudio": {
+      "title": "System Audio Capture",
+      "description": "Capture audio from other applications (Zoom, Teams, etc.)",
+      "capturing": "Capturing system audio",
+      "captureDescription": "Capture audio from apps (Zoom, Teams, etc.)",
+      "quickSetup": "Quick Setup:",
+      "quickSetupStep1": "Click \"Start\" button above",
+      "quickSetupStep2": "Select the tab/window with audio",
+      "quickSetupStep3": "✓ Check \"Share system audio\" or \"Share tab audio\"",
+      "quickSetupStep4": "Click \"Share\" to start capturing",
+      "note": "Note:",
+      "noteText": "System audio capture is optional. The voice agent works with your microphone only if system audio isn't available.",
+      "browserSupport": "Browser Support:",
+      "browserChrome": "✅ Chrome/Edge: Full support",
+      "browserFirefox": "⚠️ Firefox: Limited support",
+      "browserSafari": "❌ Safari: Not supported"
+    },
+    "advanced": {
+      "title": "Advanced Information",
+      "virtualAudioCables": "Virtual Audio Cables",
+      "virtualAudioCablesDesc": "For better control over system audio routing, install virtual audio software:",
+      "virtualAudioWindows": "Windows: VB-Cable, VoiceMeeter",
+      "virtualAudioMac": "macOS: BlackHole, Loopback",
+      "virtualAudioLinux": "Linux: PulseAudio virtual sinks",
+      "virtualAudioNote": "Then select the virtual device in the dropdowns above.",
+      "deviceSelection": "Device Selection",
+      "deviceSelectionDesc": "The selected microphone and speaker will be used for the voice agent. Make sure to grant permissions when prompted."
+    }
+  },
+  "systemPrompt": {
+    "title": "Edit System Prompt",
+    "description": "Customize the AI assistant's behavior and personality by editing the system prompt.",
+    "label": "System Prompt",
+    "placeholder": "Enter the system prompt for the AI assistant...",
+    "default": "You are a helpful assistant.",
+    "tips": "Tips:",
+    "tip1": "Be specific about the assistant's role and personality",
+    "tip2": "Include any constraints or guidelines",
+    "tip3": "Specify the tone and communication style",
+    "tip4": "Add any domain-specific knowledge or context",
+    "updateButton": "Update System Prompt"
+  },
+  "conversation": {
+    "title": "Conversation History",
+    "empty": "No conversation yet",
+    "emptyDescription": "Start talking to see the conversation history here",
+    "description": "Your conversation will appear here as you talk with the AI",
+    "showHistory": "Show History",
+    "hideHistory": "Hide History",
+    "clearHistory": "Clear",
+    "messageCount_one": "{{count}} message",
+    "messageCount_other": "{{count}} messages"
+  },
+  "onboarding": {
+    "welcome": "Welcome to Voice Agent",
+    "welcomeDescription": "Start a real-time voice conversation with AI. Click Connect to begin.",
+    "currentSettings": "Current Settings",
+    "vadSensitivity": "VAD Sensitivity:",
+    "quickTips": "Quick Tips:",
+    "tip1": "Make sure your microphone is working before connecting",
+    "tip2AlwaysOn": "The AI will automatically detect when you speak",
+    "tip2PushToTalk": "Hold Space key to transmit your voice",
+    "tip2Toggle": "Press Space key to toggle microphone on/off",
+    "tip3": "You can customize the AI's behavior by editing the system prompt",
+    "configureAudio": "Configure Audio",
+    "editSystemPrompt": "Edit System Prompt"
+  },
+  "error": {
+    "title": "Error occurred",
+    "refreshDevices": "Refresh Devices"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  }
+}
+

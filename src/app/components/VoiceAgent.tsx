@@ -64,8 +64,11 @@ import { useAudioLevel } from "@/hooks/useAudioLevel";
 import { ConnectionStatus } from "./voice-agent/ConnectionStatus";
 import { ErrorAlert } from "./voice-agent/ErrorAlert";
 import { ConversationHistory } from "./voice-agent/ConversationHistory";
+import { useTranslation } from "react-i18next";
 
 export default function VoiceAgent() {
+  const { t } = useTranslation();
+
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -76,7 +79,7 @@ export default function VoiceAgent() {
     RealtimeItem[]
   >([]);
   const [systemPrompt, setSystemPrompt] = useState(
-    "You are a helpful assistant."
+    t("systemPrompt.default")
   );
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [tempPrompt, setTempPrompt] = useState("");
@@ -565,34 +568,33 @@ export default function VoiceAgent() {
       <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Edit System Prompt</DialogTitle>
+            <DialogTitle>{t("systemPrompt.title")}</DialogTitle>
             <DialogDescription>
-              Customize the AI assistant's behavior and personality by editing
-              the system prompt.
+              {t("systemPrompt.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <label htmlFor="system-prompt" className="text-sm font-medium">
-                System Prompt
+                {t("systemPrompt.label")}
               </label>
               <Textarea
                 id="system-prompt"
                 value={tempPrompt}
                 onChange={(e) => setTempPrompt(e.target.value)}
-                placeholder="Enter the system prompt for the AI assistant..."
+                placeholder={t("systemPrompt.placeholder")}
                 className="mt-2 min-h-[200px]"
               />
             </div>
             <div className="text-sm text-muted-foreground">
               <p>
-                <strong>Tips:</strong>
+                <strong>{t("systemPrompt.tips")}</strong>
               </p>
               <ul className="list-disc list-inside space-y-1 mt-1">
-                <li>Be specific about the assistant's role and personality</li>
-                <li>Include any constraints or guidelines</li>
-                <li>Specify the tone and communication style</li>
-                <li>Add any domain-specific knowledge or context</li>
+                <li>{t("systemPrompt.tip1")}</li>
+                <li>{t("systemPrompt.tip2")}</li>
+                <li>{t("systemPrompt.tip3")}</li>
+                <li>{t("systemPrompt.tip4")}</li>
               </ul>
             </div>
           </div>
@@ -601,9 +603,9 @@ export default function VoiceAgent() {
               variant="outline"
               onClick={() => setIsPromptDialogOpen(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
-            <Button onClick={updateSystemPrompt}>Update System Prompt</Button>
+            <Button onClick={updateSystemPrompt}>{t("systemPrompt.updateButton")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -614,19 +616,19 @@ export default function VoiceAgent() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mic className="h-5 w-5" />
-              Audio Settings
+              {t("audio.settings")}
             </DialogTitle>
             <DialogDescription>
-              Configure your audio devices and voice detection settings.
+              {t("audio.voiceDetection.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
             {/* Audio Devices Section */}
             <Card className="border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Audio Devices</CardTitle>
+                <CardTitle className="text-base">{t("audio.devices.title")}</CardTitle>
                 <CardDescription className="text-xs">
-                  Select your microphone and speaker
+                  {t("audio.devices.description")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -637,7 +639,7 @@ export default function VoiceAgent() {
                     className="text-sm font-medium flex items-center gap-2 mb-2"
                   >
                     <Mic className="h-4 w-4" />
-                    Microphone
+                    {t("audio.devices.microphone")}
                   </label>
                   <div className="space-y-2">
                     <Select
@@ -646,7 +648,7 @@ export default function VoiceAgent() {
                       disabled={isLoadingDevices || isTestingMicrophone}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select microphone..." />
+                        <SelectValue placeholder={t("audio.devices.selectMicrophone")} />
                       </SelectTrigger>
                       <SelectContent>
                         {audioDevices.microphones.map((device) => (
@@ -678,19 +680,19 @@ export default function VoiceAgent() {
                         {isTestingMicrophone ? (
                           <>
                             <Square className="h-3.5 w-3.5" />
-                            Stop Test
+                            {t("audio.devices.stopTest")}
                           </>
                         ) : (
                           <>
                             <Play className="h-3.5 w-3.5" />
-                            Test Microphone
+                            {t("audio.devices.testMicrophone")}
                           </>
                         )}
                       </Button>
                       {isTestingMicrophone && (
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>Audio Level</span>
+                            <span>{t("audio.devices.audioLevel")}</span>
                             <span>{Math.round(testMicAudioLevel)}%</span>
                           </div>
                           <Progress value={testMicAudioLevel} className="h-2" />
@@ -707,7 +709,7 @@ export default function VoiceAgent() {
                     className="text-sm font-medium flex items-center gap-2 mb-2"
                   >
                     <Speaker className="h-4 w-4" />
-                    Speaker
+                    {t("audio.devices.speaker")}
                   </label>
                   <Select
                     value={selectedSpeaker}
@@ -715,7 +717,7 @@ export default function VoiceAgent() {
                     disabled={isLoadingDevices}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select speaker..." />
+                      <SelectValue placeholder={t("audio.devices.selectSpeaker")} />
                     </SelectTrigger>
                     <SelectContent>
                       {audioDevices.speakers.map((device) => (
@@ -734,8 +736,10 @@ export default function VoiceAgent() {
                 {/* Device Count and Refresh */}
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="text-xs text-muted-foreground">
-                    {audioDevices.microphones.length} microphone(s),{" "}
-                    {audioDevices.speakers.length} speaker(s)
+                    {t("audio.devices.deviceCount", {
+                      micCount: audioDevices.microphones.length,
+                      speakerCount: audioDevices.speakers.length,
+                    })}
                   </div>
                   <Button
                     variant="outline"
@@ -749,7 +753,7 @@ export default function VoiceAgent() {
                         isLoadingDevices ? "animate-spin" : ""
                       }`}
                     />
-                    Refresh
+                    {t("common.refresh")}
                   </Button>
                 </div>
               </CardContent>
@@ -758,9 +762,9 @@ export default function VoiceAgent() {
             {/* Voice Detection Settings Section */}
             <Card className="border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Voice Detection</CardTitle>
+                <CardTitle className="text-base">{t("audio.voiceDetection.title")}</CardTitle>
                 <CardDescription className="text-xs">
-                  Configure how the AI detects when you're speaking
+                  {t("audio.voiceDetection.description")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -768,7 +772,7 @@ export default function VoiceAgent() {
                 <div>
                   <label className="text-sm font-medium flex items-center gap-2 mb-2">
                     <Settings className="h-4 w-4" />
-                    Sensitivity
+                    {t("audio.voiceDetection.sensitivity")}
                   </label>
                   <Select
                     value={vadMode}
@@ -779,24 +783,21 @@ export default function VoiceAgent() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="conservative">
-                        Conservative (Recommended)
+                        {t("audio.voiceDetection.conservative")}
                       </SelectItem>
-                      <SelectItem value="balanced">Balanced</SelectItem>
-                      <SelectItem value="responsive">Responsive</SelectItem>
+                      <SelectItem value="balanced">{t("audio.voiceDetection.balanced")}</SelectItem>
+                      <SelectItem value="responsive">{t("audio.voiceDetection.responsive")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <div className="mt-2 text-xs text-muted-foreground space-y-1">
                     <div>
-                      <strong>Conservative:</strong> Waits for you to finish
-                      speaking. Reduces unwanted responses.
+                      <strong>{t("audio.voiceDetection.conservative").split(" ")[0]}:</strong> {t("audio.voiceDetection.conservativeDesc")}
                     </div>
                     <div>
-                      <strong>Balanced:</strong> Moderate sensitivity with 800ms
-                      silence detection.
+                      <strong>{t("audio.voiceDetection.balanced")}:</strong> {t("audio.voiceDetection.balancedDesc")}
                     </div>
                     <div>
-                      <strong>Responsive:</strong> Fast responses, may interrupt
-                      occasionally.
+                      <strong>{t("audio.voiceDetection.responsive")}:</strong> {t("audio.voiceDetection.responsiveDesc")}
                     </div>
                   </div>
                 </div>
@@ -805,7 +806,7 @@ export default function VoiceAgent() {
                 <div>
                   <label className="text-sm font-medium flex items-center gap-2 mb-2">
                     <Mic className="h-4 w-4" />
-                    Input Mode
+                    {t("audio.voiceDetection.inputMode")}
                   </label>
                   <Select
                     value={inputMode}
@@ -817,30 +818,27 @@ export default function VoiceAgent() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="always_on">
-                        Always On (Auto VAD)
+                        {t("audio.voiceDetection.alwaysOn")}
                       </SelectItem>
                       <SelectItem value="push_to_talk">
-                        Push to Talk (Space Key)
+                        {t("audio.voiceDetection.pushToTalk")}
                       </SelectItem>
-                      <SelectItem value="toggle">Toggle (Space Key)</SelectItem>
+                      <SelectItem value="toggle">{t("audio.voiceDetection.toggle")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <div className="mt-2 text-xs text-muted-foreground space-y-1">
                     <div>
-                      <strong>Always On:</strong> Automatic voice detection. AI
-                      responds when you stop speaking.
+                      <strong>{t("connection.inputMode.alwaysOn")}:</strong> {t("audio.voiceDetection.alwaysOnDesc")}
                     </div>
                     <div>
-                      <strong>Push to Talk:</strong> Hold Space key to transmit.
-                      Best for preventing unwanted responses.
+                      <strong>{t("connection.inputMode.pushToTalk")}:</strong> {t("audio.voiceDetection.pushToTalkDesc")}
                     </div>
                     <div>
-                      <strong>Toggle:</strong> Press Space to start/stop
-                      transmission. Like a walkie-talkie.
+                      <strong>{t("connection.inputMode.toggle")}:</strong> {t("audio.voiceDetection.toggleDesc")}
                     </div>
                     {inputMode !== "always_on" && (
                       <div className="pt-1 text-gray-600 dark:text-gray-400 font-medium">
-                        ⚠️ Input mode must be set before connecting
+                        {t("audio.voiceDetection.inputModeWarning")}
                       </div>
                     )}
                   </div>
@@ -852,10 +850,10 @@ export default function VoiceAgent() {
             <Card className="border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  System Audio Capture
+                  {t("audio.systemAudio.title")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Capture audio from other applications (Zoom, Teams, etc.)
+                  {t("audio.systemAudio.description")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -864,10 +862,10 @@ export default function VoiceAgent() {
                     {systemAudioEnabled ? (
                       <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400 font-medium">
                         <span className="h-2 w-2 bg-gray-600 dark:bg-gray-400 rounded-full animate-pulse" />
-                        Capturing system audio
+                        {t("audio.systemAudio.capturing")}
                       </span>
                     ) : (
-                      "Capture audio from apps (Zoom, Teams, etc.)"
+                      t("audio.systemAudio.captureDescription")
                     )}
                   </div>
                   <Button
@@ -881,12 +879,12 @@ export default function VoiceAgent() {
                     {systemAudioEnabled ? (
                       <>
                         <PhoneOff className="h-4 w-4" />
-                        Stop
+                        {t("common.stop")}
                       </>
                     ) : (
                       <>
                         <Monitor className="h-4 w-4" />
-                        Start
+                        {t("common.start")}
                       </>
                     )}
                   </Button>
@@ -895,32 +893,27 @@ export default function VoiceAgent() {
                   <Info className="h-4 w-4" />
                   <AlertDescription className="text-xs space-y-2">
                     <div>
-                      <strong>Quick Setup:</strong>
+                      <strong>{t("audio.systemAudio.quickSetup")}</strong>
                       <ol className="list-decimal list-inside space-y-1 ml-2 mt-1">
-                        <li>Click "Start" button above</li>
-                        <li>Select the tab/window with audio</li>
+                        <li>{t("audio.systemAudio.quickSetupStep1")}</li>
+                        <li>{t("audio.systemAudio.quickSetupStep2")}</li>
                         <li>
                           <strong className="text-gray-600 dark:text-gray-400">
-                            ✓ Check "Share system audio" or "Share tab audio"
+                            {t("audio.systemAudio.quickSetupStep3")}
                           </strong>
                         </li>
-                        <li>Click "Share" to start capturing</li>
+                        <li>{t("audio.systemAudio.quickSetupStep4")}</li>
                       </ol>
                     </div>
                     <div className="pt-2 border-t">
-                      <strong>Note:</strong> System audio capture is{" "}
-                      <strong className="text-gray-600 dark:text-gray-400">
-                        optional
-                      </strong>
-                      . The voice agent works with your microphone only if
-                      system audio isn't available.
+                      <strong>{t("audio.systemAudio.note")}</strong> {t("audio.systemAudio.noteText")}
                     </div>
                     <div className="pt-2 border-t">
-                      <strong>Browser Support:</strong>
+                      <strong>{t("audio.systemAudio.browserSupport")}</strong>
                       <ul className="list-disc list-inside ml-2 mt-1">
-                        <li>✅ Chrome/Edge: Full support</li>
-                        <li>⚠️ Firefox: Limited support</li>
-                        <li>❌ Safari: Not supported</li>
+                        <li>{t("audio.systemAudio.browserChrome")}</li>
+                        <li>{t("audio.systemAudio.browserFirefox")}</li>
+                        <li>{t("audio.systemAudio.browserSafari")}</li>
                       </ul>
                     </div>
                   </AlertDescription>
@@ -937,7 +930,7 @@ export default function VoiceAgent() {
               >
                 <span className="flex items-center gap-2">
                   <Info className="h-4 w-4" />
-                  Advanced Information
+                  {t("audio.advanced.title")}
                 </span>
                 {showAdvancedInfo ? (
                   <ChevronUp className="h-4 w-4" />
@@ -949,28 +942,26 @@ export default function VoiceAgent() {
                 <div className="p-4 pt-0 space-y-3 text-sm text-muted-foreground border-t">
                   <div>
                     <p className="font-medium mb-1 text-foreground">
-                      Virtual Audio Cables
+                      {t("audio.advanced.virtualAudioCables")}
                     </p>
                     <p className="text-xs">
-                      For better control over system audio routing, install
-                      virtual audio software:
+                      {t("audio.advanced.virtualAudioCablesDesc")}
                     </p>
                     <ul className="list-disc list-inside ml-2 mt-1 text-xs">
-                      <li>Windows: VB-Cable, VoiceMeeter</li>
-                      <li>macOS: BlackHole, Loopback</li>
-                      <li>Linux: PulseAudio virtual sinks</li>
+                      <li>{t("audio.advanced.virtualAudioWindows")}</li>
+                      <li>{t("audio.advanced.virtualAudioMac")}</li>
+                      <li>{t("audio.advanced.virtualAudioLinux")}</li>
                     </ul>
                     <p className="text-xs mt-1">
-                      Then select the virtual device in the dropdowns above.
+                      {t("audio.advanced.virtualAudioNote")}
                     </p>
                   </div>
                   <div className="pt-2 border-t">
                     <p className="font-medium mb-1 text-foreground">
-                      Device Selection
+                      {t("audio.advanced.deviceSelection")}
                     </p>
                     <p className="text-xs">
-                      The selected microphone and speaker will be used for the
-                      voice agent. Make sure to grant permissions when prompted.
+                      {t("audio.advanced.deviceSelectionDesc")}
                     </p>
                   </div>
                 </div>
@@ -982,7 +973,7 @@ export default function VoiceAgent() {
               onClick={() => setIsAudioDialogOpen(false)}
               className="w-full sm:w-auto"
             >
-              Done
+              {t("common.done")}
             </Button>
           </DialogFooter>
         </DialogContent>

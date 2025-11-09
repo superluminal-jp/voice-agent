@@ -70,21 +70,41 @@ voice-agent/
 ├── src/
 │   ├── app/
 │   │   ├── components/
-│   │   │   └── VoiceAgent.tsx       # Main voice agent component
-│   │   ├── layout.tsx                # App layout and metadata
-│   │   ├── page.tsx                  # Home page
-│   │   └── globals.css               # Global styles
-│   ├── components/ui/                # shadcn/ui components
-│   │   ├── alert.tsx
-│   │   ├── badge.tsx
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── dialog.tsx
-│   │   ├── scroll-area.tsx
-│   │   ├── select.tsx
-│   │   └── textarea.tsx
-│   └── lib/
-│       └── utils.ts                  # Utility functions
+│   │   │   ├── VoiceAgent.tsx                    # Main voice agent component
+│   │   │   └── voice-agent/
+│   │   │       ├── AudioLevelIndicator.tsx       # Audio level visualization
+│   │   │       ├── ConnectionStatus.tsx          # Connection status and controls
+│   │   │       ├── ConversationHistory.tsx       # Conversation transcript display
+│   │   │       ├── ErrorAlert.tsx                # Error message display
+│   │   │       └── PreConnectionOnboarding.tsx   # Pre-connection onboarding UI
+│   │   ├── layout.tsx                            # App layout and metadata
+│   │   ├── page.tsx                              # Home page
+│   │   └── globals.css                           # Global styles
+│   ├── components/
+│   │   ├── ui/                                   # shadcn/ui components
+│   │   │   ├── alert.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── progress.tsx
+│   │   │   ├── scroll-area.tsx
+│   │   │   ├── select.tsx
+│   │   │   └── textarea.tsx
+│   │   ├── theme-provider.tsx                    # Theme provider for dark mode
+│   │   └── theme-toggle.tsx                      # Theme toggle component
+│   ├── hooks/
+│   │   ├── useAudioDevices.ts                    # Audio device enumeration
+│   │   ├── useAudioLevel.ts                      # Audio level monitoring
+│   │   ├── usePTT.ts                             # Push-to-Talk keyboard handling
+│   │   └── useSystemAudio.ts                     # System audio capture
+│   ├── lib/
+│   │   ├── audio-utils.ts                        # Audio mixing and utilities
+│   │   ├── realtime-api.ts                       # OpenAI Realtime API utilities
+│   │   ├── vad-config.ts                         # VAD configuration presets
+│   │   └── utils.ts                              # Utility functions (cn helper)
+│   └── types/
+│       └── voice-agent.ts                        # TypeScript type definitions
 ├── docs/                             # Documentation
 │   ├── adr/                          # Architecture Decision Records
 │   ├── api/                          # API documentation
@@ -102,7 +122,16 @@ voice-agent/
 
 | File | Purpose |
 |------|---------|
-| `VoiceAgent.tsx` | Core voice agent implementation (~1200 lines) |
+| `VoiceAgent.tsx` | Core voice agent implementation (~993 lines) |
+| `ConnectionStatus.tsx` | Connection status display and controls |
+| `ConversationHistory.tsx` | Conversation transcript display component |
+| `useAudioDevices.ts` | Hook for audio device enumeration |
+| `useSystemAudio.ts` | Hook for system audio capture via screen sharing |
+| `usePTT.ts` | Hook for Push-to-Talk keyboard handling |
+| `useAudioLevel.ts` | Hook for audio level monitoring |
+| `audio-utils.ts` | Audio mixing and utility functions |
+| `realtime-api.ts` | OpenAI Realtime API utilities |
+| `vad-config.ts` | VAD configuration presets |
 | `utils.ts` | Tailwind class merging utility |
 | `layout.tsx` | App shell, metadata, fonts |
 | `page.tsx` | Home page with VoiceAgent component |
