@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   RealtimeAgent,
   RealtimeSession,
@@ -51,6 +51,32 @@ import {
   Info,
 } from "lucide-react";
 
+// VAD Configuration Types
+type VadMode = "conservative" | "balanced" | "responsive";
+
+// Input Mode Types
+type InputMode = "always_on" | "push_to_talk" | "toggle";
+
+// VAD Presets
+const VAD_PRESETS = {
+  conservative: {
+    type: "semantic_vad" as const,
+    eagerness: "low" as const,
+  },
+  balanced: {
+    type: "server_vad" as const,
+    threshold: 0.6,
+    silence_duration_ms: 800,
+    prefix_padding_ms: 300,
+  },
+  responsive: {
+    type: "server_vad" as const,
+    threshold: 0.5,
+    silence_duration_ms: 500,
+    prefix_padding_ms: 300,
+  },
+} as const;
+
 export default function VoiceAgent() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -78,11 +104,83 @@ export default function VoiceAgent() {
   const [mixedAudioStream, setMixedAudioStream] = useState<MediaStream | null>(
     null
   );
+  const [vadMode, setVadMode] = useState<VadMode>("conservative");
+  const [inputMode, setInputMode] = useState<InputMode>("always_on");
+  const [isListening, setIsListening] = useState(false);
+  const [isPTTActive, setIsPTTActive] = useState(false);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
   const sessionRef = useRef<RealtimeSession | null>(null);
+  const systemAudioGainRef = useRef<GainNode | null>(null);
+  const micGainRef = useRef<GainNode | null>(null);
   const agentRef = useRef<RealtimeAgent | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const finalAudioStreamRef = useRef<MediaStream | null>(null);
+
+  // Handle keyboard events for PTT control
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      // Only handle space key
+      if (event.code !== "Space") return;
+
+      // Ignore if user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Prevent default space behavior (page scroll)
+      event.preventDefault();
+
+      if (inputMode === "push_to_talk") {
+        // PTT mode: activate while key is held
+        if (isConnected) {
+          setIsPTTActive((prev) => {
+            if (!prev) {
+              console.log("[PTT] Activated - space key pressed");
+              return true;
+            }
+            return prev;
+          });
+        }
+      } else if (inputMode === "toggle") {
+        // Toggle mode: switch on first press (ignore repeats)
+        if (!event.repeat && isConnected) {
+          setIsPTTActive((prev) => {
+            const newState = !prev;
+            console.log(
+              `[PTT] Toggled - now ${newState ? "active" : "inactive"}`
+            );
+            return newState;
+          });
+        }
+      }
+    },
+    [inputMode, isConnected]
+  );
+
+  const handleKeyUp = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.code !== "Space") return;
+
+      if (inputMode === "push_to_talk") {
+        // PTT mode: deactivate when key is released
+        setIsPTTActive((prev) => {
+          if (prev) {
+            console.log("[PTT] Deactivated - space key released");
+            return false;
+          }
+          return prev;
+        });
+      }
+    },
+    [inputMode]
+  );
 
   // Enumerate audio devices
   const enumerateAudioDevices = async () => {
@@ -119,12 +217,15 @@ export default function VoiceAgent() {
   };
 
   // Check browser compatibility for system audio capture
-  const checkSystemAudioSupport = (): { supported: boolean; reason?: string } => {
+  const checkSystemAudioSupport = (): {
+    supported: boolean;
+    reason?: string;
+  } => {
     // Check if getDisplayMedia is available
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
       return {
         supported: false,
-        reason: "Your browser doesn't support screen sharing."
+        reason: "Your browser doesn't support screen sharing.",
       };
     }
 
@@ -133,19 +234,22 @@ export default function VoiceAgent() {
     const isChrome = userAgent.includes("chrome") && !userAgent.includes("edg");
     const isEdge = userAgent.includes("edg");
     const isFirefox = userAgent.includes("firefox");
-    const isSafari = userAgent.includes("safari") && !userAgent.includes("chrome");
+    const isSafari =
+      userAgent.includes("safari") && !userAgent.includes("chrome");
 
     if (isSafari) {
       return {
         supported: false,
-        reason: "Safari doesn't support system audio capture. Please use Chrome, Edge, or Firefox."
+        reason:
+          "Safari doesn't support system audio capture. Please use Chrome, Edge, or Firefox.",
       };
     }
 
     if (isFirefox) {
       return {
         supported: true,
-        reason: "Firefox has limited support. If it doesn't work, try Chrome or Edge."
+        reason:
+          "Firefox has limited support. If it doesn't work, try Chrome or Edge.",
       };
     }
 
@@ -165,13 +269,13 @@ export default function VoiceAgent() {
     }
 
     try {
-      // Request screen sharing with audio
+      // Request screen sharing with audio (with echo cancellation to prevent feedback loops)
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
         } as any,
       });
 
@@ -183,13 +287,15 @@ export default function VoiceAgent() {
 
       if (!audioTrack) {
         // User didn't check "Share system audio" - this is not a critical error
-        console.warn("No audio track found. User may not have checked 'Share system audio'.");
+        console.warn(
+          "No audio track found. User may not have checked 'Share system audio'."
+        );
 
         setError(
           "No system audio detected. Please try again and make sure to:\n" +
-          "1. Check the 'Share system audio' or 'Share tab audio' checkbox\n" +
-          "2. Select a tab/window that's actually playing audio\n" +
-          (compatibility.reason ? `\n${compatibility.reason}` : "")
+            "1. Check the 'Share system audio' or 'Share tab audio' checkbox\n" +
+            "2. Select a tab/window that's actually playing audio\n" +
+            (compatibility.reason ? `\n${compatibility.reason}` : "")
         );
 
         setSystemAudioEnabled(false);
@@ -228,15 +334,16 @@ export default function VoiceAgent() {
         } else if (error.name === "NotSupportedError") {
           setError(
             "System audio capture is not supported by your browser. " +
-            (compatibility.reason || "Try using Chrome or Edge for best results.")
+              (compatibility.reason ||
+                "Try using Chrome or Edge for best results.")
           );
         } else {
           setError(
             `Failed to capture system audio: ${error.message}\n\n` +
-            "Tips:\n" +
-            "• Make sure to check 'Share system audio' in the dialog\n" +
-            "• Select a tab/window that's playing audio\n" +
-            "• Try Chrome or Edge for best compatibility"
+              "Tips:\n" +
+              "• Make sure to check 'Share system audio' in the dialog\n" +
+              "• Select a tab/window that's playing audio\n" +
+              "• Try Chrome or Edge for best compatibility"
           );
         }
       } else {
@@ -284,8 +391,13 @@ export default function VoiceAgent() {
       const sysGain = audioContext.createGain();
 
       // Set gain values (adjust as needed)
-      micGain.gain.value = 1.0; // Microphone at 100%
+      // Note: micGain will be controlled by PTT state via useEffect
+      micGain.gain.value = 1.0; // Microphone at 100% (will be adjusted by PTT control)
       sysGain.gain.value = 0.7; // System audio at 70% to prevent overwhelming
+
+      // Store gain references for dynamic control
+      micGainRef.current = micGain; // For PTT control
+      systemAudioGainRef.current = sysGain; // For feedback loop prevention
 
       // Connect the audio graph
       micSource.connect(micGain);
@@ -307,6 +419,8 @@ export default function VoiceAgent() {
       if (Array.isArray(item.content)) {
         return item.content
           .map((c) => {
+            // Handle null or undefined content items
+            if (!c || typeof c !== "object") return "";
             if ("text" in c && c.text) return c.text;
             if ("transcript" in c && c.transcript) return c.transcript;
             return "";
@@ -373,11 +487,20 @@ export default function VoiceAgent() {
         instructions: systemPrompt,
       });
 
-      // Get microphone stream with device constraints
+      // Get microphone stream with device constraints and audio preprocessing
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: selectedMicrophone
-          ? { deviceId: { exact: selectedMicrophone } }
-          : true,
+          ? {
+              deviceId: { exact: selectedMicrophone },
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            }
+          : {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
       });
 
       // Store microphone stream reference for cleanup
@@ -388,7 +511,8 @@ export default function VoiceAgent() {
         ? await mixAudioStreams(micStream, systemAudioStream)
         : micStream;
 
-      // Store mixed stream for cleanup
+      // Store references for PTT control
+      finalAudioStreamRef.current = finalStream;
       if (finalStream !== micStream) {
         setMixedAudioStream(finalStream);
       }
@@ -398,10 +522,22 @@ export default function VoiceAgent() {
         mediaStream: finalStream,
       });
 
-      // Create session with custom transport
+      // Create session with custom transport and VAD configuration
+      // PTT/Toggle modes disable automatic turn detection
       const session = new RealtimeSession(agent, {
         model: "gpt-realtime",
         transport: transport,
+        config: {
+          audio: {
+            input: {
+              // Only include turnDetection when in always_on mode
+              // Omitting it entirely disables VAD for PTT/Toggle modes
+              ...(inputMode === "always_on" && {
+                turnDetection: VAD_PRESETS[vadMode],
+              }),
+            },
+          },
+        },
       });
 
       await session.connect({ apiKey: ephemeralKey });
@@ -422,9 +558,57 @@ export default function VoiceAgent() {
         }, 100);
       });
 
+      // Set up speech detection listeners for visual feedback
+      (session as any).on("input_audio_buffer.speech_started", () => {
+        setIsListening(true);
+      });
+
+      (session as any).on("input_audio_buffer.speech_stopped", () => {
+        setIsListening(false);
+      });
+
+      // Set up AI speech listeners for feedback loop prevention
+      session.on("audio_start", () => {
+        console.log("[Feedback Prevention] AI started speaking");
+        setIsAISpeaking(true);
+        // Mute system audio during AI speech to prevent feedback loop
+        if (systemAudioGainRef.current) {
+          systemAudioGainRef.current.gain.value = 0;
+        }
+      });
+
+      session.on("audio_stopped", () => {
+        console.log("[Feedback Prevention] AI stopped speaking");
+        setIsAISpeaking(false);
+        // Restore system audio after AI finishes
+        if (systemAudioGainRef.current) {
+          systemAudioGainRef.current.gain.value = 0.7;
+        }
+      });
+
+      session.on("audio_interrupted", () => {
+        console.log("[Feedback Prevention] AI interrupted");
+        setIsAISpeaking(false);
+        // Restore system audio on interruption
+        if (systemAudioGainRef.current) {
+          systemAudioGainRef.current.gain.value = 0.7;
+        }
+      });
+
       // Store references
       agentRef.current = agent;
       sessionRef.current = session;
+
+      // Initialize PTT state: disable tracks for PTT/Toggle modes on connection
+      if (inputMode !== "always_on" && finalAudioStreamRef.current) {
+        const audioTracks = finalAudioStreamRef.current.getAudioTracks();
+        audioTracks.forEach((track) => {
+          track.enabled = false;
+        });
+        console.log(
+          "[PTT] Initialized with tracks disabled for PTT/Toggle mode"
+        );
+      }
 
       setIsConnected(true);
       setIsConnecting(false);
@@ -499,7 +683,10 @@ export default function VoiceAgent() {
 
     sessionRef.current = null;
     agentRef.current = null;
+    finalAudioStreamRef.current = null;
     setIsConnected(false);
+    setIsListening(false);
+    setIsPTTActive(false);
     setConversationHistory([]);
   };
 
@@ -507,6 +694,51 @@ export default function VoiceAgent() {
   useEffect(() => {
     enumerateAudioDevices();
   }, []);
+
+  // Register keyboard event listeners for PTT
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [handleKeyDown, handleKeyUp]);
+
+  // Control microphone input based on PTT state
+  useEffect(() => {
+    if (!isConnected) return;
+
+    // Control via gain node (for mixed audio scenarios)
+    if (micGainRef.current) {
+      if (inputMode === "always_on") {
+        // Always on mode: mic always enabled
+        micGainRef.current.gain.value = 1.0;
+      } else {
+        // PTT or Toggle mode: mic enabled only when PTT is active
+        micGainRef.current.gain.value = isPTTActive ? 1.0 : 0;
+      }
+    }
+
+    // Control audio tracks directly (more reliable for stopping transmission)
+    if (finalAudioStreamRef.current) {
+      const audioTracks = finalAudioStreamRef.current.getAudioTracks();
+      audioTracks.forEach((track) => {
+        if (inputMode === "always_on") {
+          track.enabled = true;
+        } else {
+          // PTT or Toggle mode: enable track only when PTT is active
+          track.enabled = isPTTActive;
+        }
+      });
+      console.log(
+        `[PTT Control] Audio tracks ${
+          isPTTActive || inputMode === "always_on" ? "enabled" : "disabled"
+        } (mode: ${inputMode}, PTT: ${isPTTActive})`
+      );
+    }
+  }, [isPTTActive, inputMode, isConnected]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -566,6 +798,33 @@ export default function VoiceAgent() {
                 <Badge variant="secondary" className="gap-1">
                   <Monitor className="h-3 w-3" />
                   System Audio Active
+                </Badge>
+              )}
+              {isConnected && isListening && (
+                <Badge variant="default" className="gap-1 bg-green-600">
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse" />
+                  Listening...
+                </Badge>
+              )}
+              {isConnected && inputMode !== "always_on" && (
+                <Badge
+                  variant={isPTTActive ? "default" : "outline"}
+                  className={`gap-1 ${isPTTActive ? "bg-blue-600" : ""}`}
+                >
+                  <Mic className="h-3 w-3" />
+                  {inputMode === "push_to_talk"
+                    ? isPTTActive
+                      ? "Transmitting"
+                      : "Hold Space"
+                    : isPTTActive
+                    ? "Active"
+                    : "Press Space"}
+                </Badge>
+              )}
+              {isConnected && isAISpeaking && (
+                <Badge variant="secondary" className="gap-1">
+                  <Bot className="h-3 w-3" />
+                  AI Speaking
                 </Badge>
               )}
             </div>
@@ -647,10 +906,20 @@ export default function VoiceAgent() {
               <p className="text-muted-foreground">
                 You are connected! Start talking to your voice agent.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                The agent will automatically detect when you start and stop
-                speaking.
-              </p>
+              {inputMode === "always_on" ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  The agent will automatically detect when you start and stop
+                  speaking.
+                </p>
+              ) : inputMode === "push_to_talk" ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Hold the Space key to transmit. Release to stop.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Press Space to start/stop transmission.
+                </p>
+              )}
             </div>
           )}
         </CardContent>
@@ -870,6 +1139,88 @@ export default function VoiceAgent() {
               </Select>
             </div>
 
+            {/* VAD Settings Section */}
+            <div className="border-t pt-4">
+              <label className="text-sm font-medium flex items-center gap-2 mb-2">
+                <Settings className="h-4 w-4" />
+                Voice Detection Sensitivity
+              </label>
+              <Select
+                value={vadMode}
+                onValueChange={(value: VadMode) => setVadMode(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conservative">
+                    Conservative (Recommended)
+                  </SelectItem>
+                  <SelectItem value="balanced">Balanced</SelectItem>
+                  <SelectItem value="responsive">Responsive</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                <div>
+                  <strong>Conservative:</strong> Waits for you to finish
+                  speaking. Reduces unwanted responses.
+                </div>
+                <div>
+                  <strong>Balanced:</strong> Moderate sensitivity with 800ms
+                  silence detection.
+                </div>
+                <div>
+                  <strong>Responsive:</strong> Fast responses, may interrupt
+                  occasionally.
+                </div>
+              </div>
+            </div>
+
+            {/* Input Mode Section */}
+            <div className="border-t pt-4">
+              <label className="text-sm font-medium flex items-center gap-2 mb-2">
+                <Mic className="h-4 w-4" />
+                Input Mode
+              </label>
+              <Select
+                value={inputMode}
+                onValueChange={(value: InputMode) => setInputMode(value)}
+                disabled={isConnected}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="always_on">
+                    Always On (Auto VAD)
+                  </SelectItem>
+                  <SelectItem value="push_to_talk">
+                    Push to Talk (Space Key)
+                  </SelectItem>
+                  <SelectItem value="toggle">Toggle (Space Key)</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                <div>
+                  <strong>Always On:</strong> Automatic voice detection. AI
+                  responds when you stop speaking.
+                </div>
+                <div>
+                  <strong>Push to Talk:</strong> Hold Space key to transmit.
+                  Best for preventing unwanted responses.
+                </div>
+                <div>
+                  <strong>Toggle:</strong> Press Space to start/stop
+                  transmission. Like a walkie-talkie.
+                </div>
+                {inputMode !== "always_on" && (
+                  <div className="pt-1 text-orange-600 font-medium">
+                    ⚠️ Input mode must be set before connecting
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* System Audio Section */}
             <div className="border-t pt-4">
               <label className="text-sm font-medium flex items-center gap-2 mb-2">
@@ -920,7 +1271,8 @@ export default function VoiceAgent() {
                         <ol className="list-decimal list-inside space-y-1 ml-2 mt-1">
                           <li>Click "Start Capture" button above</li>
                           <li>
-                            In the browser dialog, select the tab/window with audio
+                            In the browser dialog, select the tab/window with
+                            audio
                           </li>
                           <li>
                             <strong className="text-orange-600">
@@ -933,9 +1285,9 @@ export default function VoiceAgent() {
                     </div>
                     <div className="pt-2 border-t">
                       <strong>Note:</strong> System audio capture is{" "}
-                      <strong className="text-green-600">optional</strong>. The voice
-                      agent will work with your microphone only if system audio
-                      isn't available.
+                      <strong className="text-green-600">optional</strong>. The
+                      voice agent will work with your microphone only if system
+                      audio isn't available.
                     </div>
                     <div className="pt-2 border-t">
                       <strong>Browser Support:</strong>
