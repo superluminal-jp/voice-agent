@@ -5,6 +5,7 @@ import {
   RealtimeAgent,
   RealtimeSession,
   RealtimeItem,
+  OpenAIRealtimeWebRTC,
 } from "@openai/agents/realtime";
 import { Button } from "@/components/ui/button";
 import {
@@ -372,23 +373,38 @@ export default function VoiceAgent() {
         instructions: systemPrompt,
       });
 
-      // Create session with minimal configuration
-      const session = new RealtimeSession(agent, {
-        model: "gpt-realtime",
+      // Get microphone stream with device constraints
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: selectedMicrophone
+          ? { deviceId: { exact: selectedMicrophone } }
+          : true,
       });
 
-      // Connect to the session with audio device constraints if selected
-      const connectOptions: any = { apiKey: ephemeralKey };
+      // Store microphone stream reference for cleanup
+      micStreamRef.current = micStream;
 
-      // Note: The RealtimeSession may not support direct device selection
-      // This is a placeholder for future SDK updates
-      if (selectedMicrophone) {
-        connectOptions.audioConstraints = {
-          deviceId: { exact: selectedMicrophone },
-        };
+      // Mix microphone with system audio if enabled
+      const finalStream = systemAudioStream
+        ? await mixAudioStreams(micStream, systemAudioStream)
+        : micStream;
+
+      // Store mixed stream for cleanup
+      if (finalStream !== micStream) {
+        setMixedAudioStream(finalStream);
       }
 
-      await session.connect(connectOptions);
+      // Create custom WebRTC transport with the mixed audio stream
+      const transport = new OpenAIRealtimeWebRTC({
+        mediaStream: finalStream,
+      });
+
+      // Create session with custom transport
+      const session = new RealtimeSession(agent, {
+        model: "gpt-realtime",
+        transport: transport,
+      });
+
+      await session.connect({ apiKey: ephemeralKey });
 
       // Set up conversation history listener
       session.on("history_updated", (history: RealtimeItem[]) => {
