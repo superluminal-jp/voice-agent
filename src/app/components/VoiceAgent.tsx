@@ -15,10 +15,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -33,443 +32,130 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Phone,
-  PhoneOff,
   Volume2,
-  MessageSquare,
-  Trash2,
-  User,
-  Bot,
   Settings,
   Mic,
   Speaker,
   RefreshCw,
   Monitor,
   Info,
+  PhoneOff,
+  ChevronDown,
+  ChevronUp,
+  Play,
+  Square,
 } from "lucide-react";
 
-// VAD Configuration Types
-type VadMode = "conservative" | "balanced" | "responsive";
+// Types and utilities
+import type { VadMode, InputMode } from "@/types/voice-agent";
+import { getVadConfig } from "@/lib/vad-config";
+import { mixAudioStreams } from "@/lib/audio-utils";
+import { generateEphemeralKey } from "@/lib/realtime-api";
 
-// Input Mode Types
-type InputMode = "always_on" | "push_to_talk" | "toggle";
+// Hooks
+import { useAudioDevices } from "@/hooks/useAudioDevices";
+import { useSystemAudio } from "@/hooks/useSystemAudio";
+import { usePTT } from "@/hooks/usePTT";
+import { useAudioLevel } from "@/hooks/useAudioLevel";
 
-// VAD Presets
-const VAD_PRESETS = {
-  conservative: {
-    type: "semantic_vad" as const,
-    eagerness: "low" as const,
-  },
-  balanced: {
-    type: "server_vad" as const,
-    threshold: 0.6,
-    silence_duration_ms: 800,
-    prefix_padding_ms: 300,
-  },
-  responsive: {
-    type: "server_vad" as const,
-    threshold: 0.5,
-    silence_duration_ms: 500,
-    prefix_padding_ms: 300,
-  },
-} as const;
+// Components
+import { ConnectionStatus } from "./voice-agent/ConnectionStatus";
+import { ErrorAlert } from "./voice-agent/ErrorAlert";
+import { ConversationHistory } from "./voice-agent/ConversationHistory";
 
 export default function VoiceAgent() {
+  // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Conversation state
   const [conversationHistory, setConversationHistory] = useState<
     RealtimeItem[]
   >([]);
-  const [showHistory, setShowHistory] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(
     "You are a helpful assistant."
   );
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [tempPrompt, setTempPrompt] = useState("");
   const [isAudioDialogOpen, setIsAudioDialogOpen] = useState(false);
-  const [audioDevices, setAudioDevices] = useState<{
-    microphones: MediaDeviceInfo[];
-    speakers: MediaDeviceInfo[];
-  }>({ microphones: [], speakers: [] });
-  const [selectedMicrophone, setSelectedMicrophone] = useState<string>("");
-  const [selectedSpeaker, setSelectedSpeaker] = useState<string>("");
-  const [isLoadingDevices, setIsLoadingDevices] = useState(false);
-  const [systemAudioEnabled, setSystemAudioEnabled] = useState(false);
-  const [systemAudioStream, setSystemAudioStream] =
-    useState<MediaStream | null>(null);
-  const [mixedAudioStream, setMixedAudioStream] = useState<MediaStream | null>(
-    null
-  );
+
+  // Microphone test state
+  const [isTestingMicrophone, setIsTestingMicrophone] = useState(false);
+  const [testMicStream, setTestMicStream] = useState<MediaStream | null>(null);
+  const testMicAudioLevel = useAudioLevel(testMicStream);
+  const testMicStreamRef = useRef<MediaStream | null>(null);
+
+  // Collapsible sections state
+  const [showAdvancedInfo, setShowAdvancedInfo] = useState(false);
+
+  // Input control state
   const [vadMode, setVadMode] = useState<VadMode>("conservative");
   const [inputMode, setInputMode] = useState<InputMode>("always_on");
   const [isListening, setIsListening] = useState(false);
-  const [isPTTActive, setIsPTTActive] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
+
+  // Audio state
+  const [mixedAudioStream, setMixedAudioStream] = useState<MediaStream | null>(
+    null
+  );
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+
+  // Refs
   const sessionRef = useRef<RealtimeSession | null>(null);
   const systemAudioGainRef = useRef<GainNode | null>(null);
-  const micGainRef = useRef<GainNode | null>(null);
   const agentRef = useRef<RealtimeAgent | null>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const finalAudioStreamRef = useRef<MediaStream | null>(null);
+  const transportRef = useRef<OpenAIRealtimeWebRTC | null>(null);
 
-  // Handle keyboard events for PTT control
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      // Only handle space key
-      if (event.code !== "Space") return;
+  // Custom hooks
+  const audioDevicesHook = useAudioDevices();
+  const systemAudioHook = useSystemAudio();
+  const pttHook = usePTT(inputMode, isConnected);
 
-      // Ignore if user is typing in an input field
-      const target = event.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
-        return;
-      }
+  // Monitor audio levels
+  const inputAudioLevel = useAudioLevel(micStream);
 
-      // Prevent default space behavior (page scroll)
-      event.preventDefault();
+  // Extract values from hooks
+  const {
+    devices: audioDevices,
+    selectedMicrophone,
+    selectedSpeaker,
+    isLoading: isLoadingDevices,
+    setSelectedMicrophone,
+    setSelectedSpeaker,
+    refreshDevices: enumerateAudioDevices,
+  } = audioDevicesHook;
 
-      if (inputMode === "push_to_talk") {
-        // PTT mode: activate while key is held
-        if (isConnected) {
-          setIsPTTActive((prev) => {
-            if (!prev) {
-              console.log("[PTT] Activated - space key pressed");
-              return true;
-            }
-            return prev;
-          });
-        }
-      } else if (inputMode === "toggle") {
-        // Toggle mode: switch on first press (ignore repeats)
-        if (!event.repeat && isConnected) {
-          setIsPTTActive((prev) => {
-            const newState = !prev;
-            console.log(
-              `[PTT] Toggled - now ${newState ? "active" : "inactive"}`
-            );
-            return newState;
-          });
-        }
-      }
-    },
-    [inputMode, isConnected]
-  );
+  const {
+    enabled: systemAudioEnabled,
+    stream: systemAudioStream,
+    capture: captureSystemAudio,
+    stop: stopSystemAudio,
+  } = systemAudioHook;
 
-  const handleKeyUp = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.code !== "Space") return;
+  const {
+    isPTTActive,
+    setIsPTTActive,
+    micGainRef,
+    audioStreamRef: pttAudioStreamRef,
+  } = pttHook;
 
-      if (inputMode === "push_to_talk") {
-        // PTT mode: deactivate when key is released
-        setIsPTTActive((prev) => {
-          if (prev) {
-            console.log("[PTT] Deactivated - space key released");
-            return false;
-          }
-          return prev;
-        });
-      }
-    },
-    [inputMode]
-  );
+  // Sync PTT audio stream ref with final audio stream ref
+  useEffect(() => {
+    pttAudioStreamRef.current = finalAudioStreamRef.current;
+  }, [pttAudioStreamRef]);
 
-  // Enumerate audio devices
-  const enumerateAudioDevices = async () => {
-    setIsLoadingDevices(true);
-    try {
-      // Request microphone permission first
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const microphones = devices.filter(
-        (device) => device.kind === "audioinput"
-      );
-      const speakers = devices.filter(
-        (device) => device.kind === "audiooutput"
-      );
-
-      setAudioDevices({ microphones, speakers });
-
-      // Set default selections if not already set
-      if (!selectedMicrophone && microphones.length > 0) {
-        setSelectedMicrophone(microphones[0].deviceId);
-      }
-      if (!selectedSpeaker && speakers.length > 0) {
-        setSelectedSpeaker(speakers[0].deviceId);
-      }
-    } catch (error) {
-      console.error("Error enumerating audio devices:", error);
-      setError(
-        "Failed to access audio devices. Please check your microphone permissions."
-      );
-    } finally {
-      setIsLoadingDevices(false);
+  // Handle system audio errors
+  useEffect(() => {
+    if (systemAudioHook.error) {
+      setError(systemAudioHook.error);
     }
-  };
-
-  // Check browser compatibility for system audio capture
-  const checkSystemAudioSupport = (): {
-    supported: boolean;
-    reason?: string;
-  } => {
-    // Check if getDisplayMedia is available
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      return {
-        supported: false,
-        reason: "Your browser doesn't support screen sharing.",
-      };
-    }
-
-    // Check browser type
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isChrome = userAgent.includes("chrome") && !userAgent.includes("edg");
-    const isEdge = userAgent.includes("edg");
-    const isFirefox = userAgent.includes("firefox");
-    const isSafari =
-      userAgent.includes("safari") && !userAgent.includes("chrome");
-
-    if (isSafari) {
-      return {
-        supported: false,
-        reason:
-          "Safari doesn't support system audio capture. Please use Chrome, Edge, or Firefox.",
-      };
-    }
-
-    if (isFirefox) {
-      return {
-        supported: true,
-        reason:
-          "Firefox has limited support. If it doesn't work, try Chrome or Edge.",
-      };
-    }
-
-    return { supported: true };
-  };
-
-  // Capture system audio via screen sharing
-  const captureSystemAudio = async () => {
-    // Clear any previous errors
-    setError(null);
-
-    // Check browser compatibility
-    const compatibility = checkSystemAudioSupport();
-    if (!compatibility.supported) {
-      setError(compatibility.reason || "Browser not supported");
-      return;
-    }
-
-    try {
-      // Request screen sharing with audio (with echo cancellation to prevent feedback loops)
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        } as any,
-      });
-
-      // Extract only the audio track
-      const audioTrack = displayStream.getAudioTracks()[0];
-
-      // Stop the video track as we only need audio
-      displayStream.getVideoTracks().forEach((track) => track.stop());
-
-      if (!audioTrack) {
-        // User didn't check "Share system audio" - this is not a critical error
-        console.warn(
-          "No audio track found. User may not have checked 'Share system audio'."
-        );
-
-        setError(
-          "No system audio detected. Please try again and make sure to:\n" +
-            "1. Check the 'Share system audio' or 'Share tab audio' checkbox\n" +
-            "2. Select a tab/window that's actually playing audio\n" +
-            (compatibility.reason ? `\n${compatibility.reason}` : "")
-        );
-
-        setSystemAudioEnabled(false);
-        return;
-      }
-
-      // Create a new stream with only audio
-      const audioStream = new MediaStream([audioTrack]);
-      setSystemAudioStream(audioStream);
-      setSystemAudioEnabled(true);
-
-      // Clear any error messages on success
-      setError(null);
-
-      // Listen for when the user stops sharing
-      audioTrack.onended = () => {
-        setSystemAudioEnabled(false);
-        setSystemAudioStream(null);
-        console.log("System audio capture stopped");
-      };
-
-      console.log("System audio captured successfully");
-    } catch (error) {
-      console.error("Error capturing system audio:", error);
-
-      // Provide specific error messages based on the error type
-      if (error instanceof Error) {
-        if (error.name === "NotAllowedError") {
-          setError(
-            "Permission denied. Please allow screen sharing to capture system audio."
-          );
-        } else if (error.name === "NotFoundError") {
-          setError(
-            "No screen sharing source found. Please try again and select a screen or window."
-          );
-        } else if (error.name === "NotSupportedError") {
-          setError(
-            "System audio capture is not supported by your browser. " +
-              (compatibility.reason ||
-                "Try using Chrome or Edge for best results.")
-          );
-        } else {
-          setError(
-            `Failed to capture system audio: ${error.message}\n\n` +
-              "Tips:\n" +
-              "• Make sure to check 'Share system audio' in the dialog\n" +
-              "• Select a tab/window that's playing audio\n" +
-              "• Try Chrome or Edge for best compatibility"
-          );
-        }
-      } else {
-        setError(
-          "Failed to capture system audio. Make sure to check 'Share system audio' when selecting the screen."
-        );
-      }
-
-      setSystemAudioEnabled(false);
-    }
-  };
-
-  // Stop system audio capture
-  const stopSystemAudio = () => {
-    if (systemAudioStream) {
-      systemAudioStream.getTracks().forEach((track) => track.stop());
-      setSystemAudioStream(null);
-    }
-    setSystemAudioEnabled(false);
-  };
-
-  // Mix microphone and system audio streams
-  const mixAudioStreams = async (
-    micStream: MediaStream,
-    sysStream: MediaStream | null
-  ): Promise<MediaStream> => {
-    if (!sysStream) {
-      return micStream;
-    }
-
-    try {
-      // Create audio context
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-
-      // Create source nodes
-      const micSource = audioContext.createMediaStreamSource(micStream);
-      const sysSource = audioContext.createMediaStreamSource(sysStream);
-
-      // Create destination
-      const destination = audioContext.createMediaStreamDestination();
-
-      // Create gain nodes for volume control
-      const micGain = audioContext.createGain();
-      const sysGain = audioContext.createGain();
-
-      // Set gain values (adjust as needed)
-      // Note: micGain will be controlled by PTT state via useEffect
-      micGain.gain.value = 1.0; // Microphone at 100% (will be adjusted by PTT control)
-      sysGain.gain.value = 0.7; // System audio at 70% to prevent overwhelming
-
-      // Store gain references for dynamic control
-      micGainRef.current = micGain; // For PTT control
-      systemAudioGainRef.current = sysGain; // For feedback loop prevention
-
-      // Connect the audio graph
-      micSource.connect(micGain);
-      sysGain.connect(destination);
-      micGain.connect(destination);
-      sysSource.connect(sysGain);
-
-      console.log("Audio streams mixed successfully");
-      return destination.stream;
-    } catch (error) {
-      console.error("Error mixing audio streams:", error);
-      return micStream;
-    }
-  };
-
-  // Helper function to extract text content from RealtimeItem
-  const getItemText = (item: RealtimeItem): string => {
-    if (item.type === "message" && item.content) {
-      if (Array.isArray(item.content)) {
-        return item.content
-          .map((c) => {
-            // Handle null or undefined content items
-            if (!c || typeof c !== "object") return "";
-            if ("text" in c && c.text) return c.text;
-            if ("transcript" in c && c.transcript) return c.transcript;
-            return "";
-          })
-          .join(" ");
-      }
-      return String(item.content);
-    }
-    if (item.type === "message" && "transcript" in item && item.transcript) {
-      return String(item.transcript);
-    }
-    return JSON.stringify(item, null, 2);
-  };
-
-  // Generate ephemeral key directly (for development/testing)
-  const generateEphemeralKey = async (): Promise<string> => {
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-
-    if (!apiKey) {
-      throw new Error(
-        "OpenAI API key not configured. Please set NEXT_PUBLIC_OPENAI_API_KEY environment variable."
-      );
-    }
-
-    const response = await fetch(
-      "https://api.openai.com/v1/realtime/client_secrets",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          session: {
-            type: "realtime",
-            model: "gpt-realtime",
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Failed to generate ephemeral key: ${errorData}`);
-    }
-
-    const data = await response.json();
-    return data.value;
-  };
+  }, [systemAudioHook.error]);
 
   // Connect to Realtime API
   const connect = async () => {
@@ -503,13 +189,19 @@ export default function VoiceAgent() {
             },
       });
 
-      // Store microphone stream reference for cleanup
+      // Store microphone stream reference for cleanup and state for audio level monitoring
       micStreamRef.current = micStream;
+      setMicStream(micStream);
 
       // Mix microphone with system audio if enabled
-      const finalStream = systemAudioStream
-        ? await mixAudioStreams(micStream, systemAudioStream)
-        : micStream;
+      let finalStream = micStream;
+      if (systemAudioStream) {
+        const mixed = await mixAudioStreams(micStream, systemAudioStream);
+        finalStream = mixed.stream;
+        audioContextRef.current = mixed.audioContext;
+        micGainRef.current = mixed.micGain;
+        systemAudioGainRef.current = mixed.systemAudioGain;
+      }
 
       // Store references for PTT control
       finalAudioStreamRef.current = finalStream;
@@ -522,6 +214,9 @@ export default function VoiceAgent() {
         mediaStream: finalStream,
       });
 
+      // Store transport reference for output stream access
+      transportRef.current = transport;
+
       // Create session with custom transport and VAD configuration
       // PTT/Toggle modes disable automatic turn detection
       const session = new RealtimeSession(agent, {
@@ -533,7 +228,7 @@ export default function VoiceAgent() {
               // Only include turnDetection when in always_on mode
               // Omitting it entirely disables VAD for PTT/Toggle modes
               ...(inputMode === "always_on" && {
-                turnDetection: VAD_PRESETS[vadMode],
+                turnDetection: getVadConfig(vadMode),
               }),
             },
           },
@@ -545,17 +240,7 @@ export default function VoiceAgent() {
       // Set up conversation history listener
       session.on("history_updated", (history: RealtimeItem[]) => {
         setConversationHistory(history);
-        // Auto-scroll to bottom when new message arrives
-        setTimeout(() => {
-          if (scrollAreaRef.current) {
-            const scrollContainer = scrollAreaRef.current.querySelector(
-              "[data-radix-scroll-area-viewport]"
-            );
-            if (scrollContainer) {
-              scrollContainer.scrollTop = scrollContainer.scrollHeight;
-            }
-          }
-        }, 100);
+        // Auto-scroll is handled by ConversationHistory component
       });
 
       // Set up speech detection listeners for visual feedback
@@ -571,6 +256,7 @@ export default function VoiceAgent() {
       session.on("audio_start", () => {
         console.log("[Feedback Prevention] AI started speaking");
         setIsAISpeaking(true);
+
         // Mute system audio during AI speech to prevent feedback loop
         if (systemAudioGainRef.current) {
           systemAudioGainRef.current.gain.value = 0;
@@ -580,6 +266,7 @@ export default function VoiceAgent() {
       session.on("audio_stopped", () => {
         console.log("[Feedback Prevention] AI stopped speaking");
         setIsAISpeaking(false);
+
         // Restore system audio after AI finishes
         if (systemAudioGainRef.current) {
           systemAudioGainRef.current.gain.value = 0.7;
@@ -589,6 +276,7 @@ export default function VoiceAgent() {
       session.on("audio_interrupted", () => {
         console.log("[Feedback Prevention] AI interrupted");
         setIsAISpeaking(false);
+
         // Restore system audio on interruption
         if (systemAudioGainRef.current) {
           systemAudioGainRef.current.gain.value = 0.7;
@@ -670,6 +358,7 @@ export default function VoiceAgent() {
       micStreamRef.current.getTracks().forEach((track) => track.stop());
       micStreamRef.current = null;
     }
+    setMicStream(null);
 
     if (mixedAudioStream) {
       mixedAudioStream.getTracks().forEach((track) => track.stop());
@@ -684,6 +373,7 @@ export default function VoiceAgent() {
     sessionRef.current = null;
     agentRef.current = null;
     finalAudioStreamRef.current = null;
+    transportRef.current = null;
     setIsConnected(false);
     setIsListening(false);
     setIsPTTActive(false);
@@ -695,50 +385,107 @@ export default function VoiceAgent() {
     enumerateAudioDevices();
   }, []);
 
-  // Register keyboard event listeners for PTT
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+  // Test microphone function
+  const startMicrophoneTest = async () => {
+    console.log(
+      "[Microphone Test] Button clicked, isTestingMicrophone:",
+      isTestingMicrophone
+    );
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [handleKeyDown, handleKeyUp]);
-
-  // Control microphone input based on PTT state
-  useEffect(() => {
-    if (!isConnected) return;
-
-    // Control via gain node (for mixed audio scenarios)
-    if (micGainRef.current) {
-      if (inputMode === "always_on") {
-        // Always on mode: mic always enabled
-        micGainRef.current.gain.value = 1.0;
-      } else {
-        // PTT or Toggle mode: mic enabled only when PTT is active
-        micGainRef.current.gain.value = isPTTActive ? 1.0 : 0;
+    if (isTestingMicrophone) {
+      // Stop testing
+      console.log("[Microphone Test] Stopping test...");
+      if (testMicStreamRef.current) {
+        testMicStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          console.log("[Microphone Test] Track stopped:", track.id);
+        });
+        testMicStreamRef.current = null;
       }
+      setTestMicStream(null);
+      setIsTestingMicrophone(false);
+      console.log("[Microphone Test] Test stopped");
+      return;
     }
 
-    // Control audio tracks directly (more reliable for stopping transmission)
-    if (finalAudioStreamRef.current) {
-      const audioTracks = finalAudioStreamRef.current.getAudioTracks();
-      audioTracks.forEach((track) => {
-        if (inputMode === "always_on") {
-          track.enabled = true;
-        } else {
-          // PTT or Toggle mode: enable track only when PTT is active
-          track.enabled = isPTTActive;
-        }
-      });
+    console.log(
+      "[Microphone Test] Starting test, selectedMicrophone:",
+      selectedMicrophone
+    );
+
+    try {
+      // Use 'ideal' instead of 'exact' for better compatibility
+      // If the exact device is not available, it will fall back to default
+      const constraints = selectedMicrophone
+        ? {
+            deviceId: { ideal: selectedMicrophone },
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        : {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          };
+
       console.log(
-        `[PTT Control] Audio tracks ${
-          isPTTActive || inputMode === "always_on" ? "enabled" : "disabled"
-        } (mode: ${inputMode}, PTT: ${isPTTActive})`
+        "[Microphone Test] Requesting media with constraints:",
+        constraints
       );
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: constraints,
+      });
+
+      console.log(
+        "[Microphone Test] Stream obtained:",
+        stream.id,
+        "Tracks:",
+        stream.getAudioTracks().length
+      );
+
+      testMicStreamRef.current = stream;
+      setTestMicStream(stream);
+      setIsTestingMicrophone(true);
+
+      console.log(
+        "[Microphone Test] Test started successfully, isTestingMicrophone set to true"
+      );
+    } catch (error) {
+      console.error("[Microphone Test] Error testing microphone:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to access microphone for testing";
+      setError(errorMessage);
+      setIsTestingMicrophone(false);
+      setTestMicStream(null);
     }
-  }, [isPTTActive, inputMode, isConnected]);
+  };
+
+  // Cleanup test stream when dialog closes or microphone changes
+  useEffect(() => {
+    if (!isAudioDialogOpen && testMicStreamRef.current) {
+      testMicStreamRef.current.getTracks().forEach((track) => track.stop());
+      testMicStreamRef.current = null;
+      setTestMicStream(null);
+      setIsTestingMicrophone(false);
+    }
+  }, [isAudioDialogOpen]);
+
+  useEffect(() => {
+    // Stop test if microphone changes while testing
+    // Only trigger when selectedMicrophone actually changes, not when isTestingMicrophone changes
+    if (isTestingMicrophone && testMicStreamRef.current) {
+      console.log("[Microphone Test] Microphone changed, stopping test");
+      testMicStreamRef.current.getTracks().forEach((track) => track.stop());
+      testMicStreamRef.current = null;
+      setTestMicStream(null);
+      setIsTestingMicrophone(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMicrophone]); // Only depend on selectedMicrophone, not isTestingMicrophone
 
   // Cleanup on unmount
   useEffect(() => {
@@ -760,269 +507,59 @@ export default function VoiceAgent() {
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+
+      // Clean up test microphone stream
+      if (testMicStreamRef.current) {
+        testMicStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
     };
   }, [systemAudioStream]);
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Volume2 className="h-5 w-5" />
-            Voice Agent
-          </CardTitle>
-          <CardDescription>
-            Connect to start a voice conversation with AI
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Card className="border-0 shadow-none bg-transparent">
+        <CardContent className="p-0">
           {/* Connection Status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant={
-                  isConnected
-                    ? "default"
-                    : isConnecting
-                    ? "secondary"
-                    : "outline"
-                }
-              >
-                {isConnected
-                  ? "Connected"
-                  : isConnecting
-                  ? "Connecting..."
-                  : "Disconnected"}
-              </Badge>
-              {systemAudioEnabled && (
-                <Badge variant="secondary" className="gap-1">
-                  <Monitor className="h-3 w-3" />
-                  System Audio Active
-                </Badge>
-              )}
-              {isConnected && isListening && (
-                <Badge variant="default" className="gap-1 bg-green-600">
-                  <span className="h-2 w-2 bg-white rounded-full animate-pulse" />
-                  Listening...
-                </Badge>
-              )}
-              {isConnected && inputMode !== "always_on" && (
-                <Badge
-                  variant={isPTTActive ? "default" : "outline"}
-                  className={`gap-1 ${isPTTActive ? "bg-blue-600" : ""}`}
-                >
-                  <Mic className="h-3 w-3" />
-                  {inputMode === "push_to_talk"
-                    ? isPTTActive
-                      ? "Transmitting"
-                      : "Hold Space"
-                    : isPTTActive
-                    ? "Active"
-                    : "Press Space"}
-                </Badge>
-              )}
-              {isConnected && isAISpeaking && (
-                <Badge variant="secondary" className="gap-1">
-                  <Bot className="h-3 w-3" />
-                  AI Speaking
-                </Badge>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAudioDialogOpen(true)}
-                className="gap-2"
-              >
-                <Mic className="h-4 w-4" />
-                Audio Settings
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openPromptDialog}
-                className="gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                System Prompt
-              </Button>
-              <Button
-                onClick={isConnected ? disconnect : connect}
-                disabled={isConnecting}
-                variant={isConnected ? "destructive" : "default"}
-                className="gap-2"
-              >
-                {isConnecting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    Connecting...
-                  </>
-                ) : isConnected ? (
-                  <>
-                    <PhoneOff className="h-4 w-4" />
-                    Disconnect
-                  </>
-                ) : (
-                  <>
-                    <Phone className="h-4 w-4" />
-                    Connect
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          <ConnectionStatus
+            isConnected={isConnected}
+            isConnecting={isConnecting}
+            isListening={isListening}
+            isAISpeaking={isAISpeaking}
+            isPTTActive={isPTTActive}
+            inputMode={inputMode}
+            systemAudioEnabled={systemAudioEnabled}
+            inputAudioLevel={inputAudioLevel}
+            onAudioSettingsClick={() => setIsAudioDialogOpen(true)}
+            onSystemPromptClick={openPromptDialog}
+            onInputModeChange={setInputMode}
+            onConnect={connect}
+            onDisconnect={disconnect}
+          />
 
           {/* Error Display */}
           {error && (
-            <Alert variant="destructive">
-              <AlertDescription className="space-y-2">
-                <div className="whitespace-pre-wrap">{error}</div>
-                {error.includes("system audio") && (
-                  <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setError(null);
-                        captureSystemAudio();
-                      }}
-                      className="gap-2"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Try Again
-                    </Button>
-                  </div>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Instructions */}
-          {isConnected && (
-            <div className="text-center py-8">
-              <Volume2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-muted-foreground">
-                You are connected! Start talking to your voice agent.
-              </p>
-              {inputMode === "always_on" ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  The agent will automatically detect when you start and stop
-                  speaking.
-                </p>
-              ) : inputMode === "push_to_talk" ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Hold the Space key to transmit. Release to stop.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Press Space to start/stop transmission.
-                </p>
-              )}
-            </div>
+            <ErrorAlert
+              error={error}
+              onDismiss={() => setError(null)}
+              onRetrySystemAudio={() => {
+                setError(null);
+                captureSystemAudio();
+              }}
+              onRefreshDevices={() => {
+                setError(null);
+                enumerateAudioDevices();
+              }}
+            />
           )}
         </CardContent>
       </Card>
 
       {/* Conversation History */}
-      {isConnected && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Conversation History
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowHistory(!showHistory)}
-                >
-                  {showHistory ? "Hide" : "Show"} History
-                </Button>
-                {conversationHistory.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearHistory}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-            <CardDescription>
-              {conversationHistory.length} message
-              {conversationHistory.length !== 1 ? "s" : ""} in conversation
-            </CardDescription>
-          </CardHeader>
-          {showHistory && (
-            <CardContent>
-              <ScrollArea
-                ref={scrollAreaRef}
-                className="h-96 w-full border rounded-md"
-              >
-                <div className="p-4 space-y-4">
-                  {conversationHistory.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8">
-                      <MessageSquare className="h-8 w-8 mx-auto mb-2" />
-                      <p>No conversation yet</p>
-                      <p className="text-sm">
-                        Start talking to see the conversation history
-                      </p>
-                    </div>
-                  ) : (
-                    conversationHistory.map((item, index) => (
-                      <div key={index} className="flex gap-3">
-                        <div className="flex-shrink-0">
-                          {item.type === "message" && item.role === "user" ? (
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                              <User className="h-4 w-4 text-blue-600" />
-                            </div>
-                          ) : item.type === "message" &&
-                            item.role === "assistant" ? (
-                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                              <Bot className="h-4 w-4 text-green-600" />
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              <MessageSquare className="h-4 w-4 text-gray-600" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium">
-                              {item.type === "message" && item.role === "user"
-                                ? "You"
-                                : item.type === "message" &&
-                                  item.role === "assistant"
-                                ? "Assistant"
-                                : item.type}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {item.type}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-gray-700">
-                            <p className="whitespace-pre-wrap">
-                              {getItemText(item)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          )}
-        </Card>
-      )}
+      <ConversationHistory
+        history={conversationHistory}
+        isConnected={isConnected}
+        onClearHistory={clearHistory}
+      />
 
       {/* System Prompt Dialog */}
       <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>
@@ -1073,166 +610,260 @@ export default function VoiceAgent() {
 
       {/* Audio Settings Dialog */}
       <Dialog open={isAudioDialogOpen} onOpenChange={setIsAudioDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mic className="h-5 w-5" />
               Audio Settings
             </DialogTitle>
             <DialogDescription>
-              Select your preferred microphone and speaker for the voice agent.
+              Configure your audio devices and voice detection settings.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Microphone Selection */}
-            <div>
-              <label
-                htmlFor="microphone-select"
-                className="text-sm font-medium flex items-center gap-2 mb-2"
-              >
-                <Mic className="h-4 w-4" />
-                Microphone
-              </label>
-              <Select
-                value={selectedMicrophone}
-                onValueChange={setSelectedMicrophone}
-                disabled={isLoadingDevices}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select microphone..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {audioDevices.microphones.map((device) => (
-                    <SelectItem key={device.deviceId} value={device.deviceId}>
-                      {device.label ||
-                        `Microphone ${device.deviceId.slice(0, 8)}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Speaker Selection */}
-            <div>
-              <label
-                htmlFor="speaker-select"
-                className="text-sm font-medium flex items-center gap-2 mb-2"
-              >
-                <Speaker className="h-4 w-4" />
-                Speaker
-              </label>
-              <Select
-                value={selectedSpeaker}
-                onValueChange={setSelectedSpeaker}
-                disabled={isLoadingDevices}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select speaker..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {audioDevices.speakers.map((device) => (
-                    <SelectItem key={device.deviceId} value={device.deviceId}>
-                      {device.label || `Speaker ${device.deviceId.slice(0, 8)}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* VAD Settings Section */}
-            <div className="border-t pt-4">
-              <label className="text-sm font-medium flex items-center gap-2 mb-2">
-                <Settings className="h-4 w-4" />
-                Voice Detection Sensitivity
-              </label>
-              <Select
-                value={vadMode}
-                onValueChange={(value: VadMode) => setVadMode(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="conservative">
-                    Conservative (Recommended)
-                  </SelectItem>
-                  <SelectItem value="balanced">Balanced</SelectItem>
-                  <SelectItem value="responsive">Responsive</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="mt-2 text-xs text-muted-foreground space-y-1">
+          <div className="space-y-6">
+            {/* Audio Devices Section */}
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Audio Devices</CardTitle>
+                <CardDescription className="text-xs">
+                  Select your microphone and speaker
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Microphone Selection */}
                 <div>
-                  <strong>Conservative:</strong> Waits for you to finish
-                  speaking. Reduces unwanted responses.
-                </div>
-                <div>
-                  <strong>Balanced:</strong> Moderate sensitivity with 800ms
-                  silence detection.
-                </div>
-                <div>
-                  <strong>Responsive:</strong> Fast responses, may interrupt
-                  occasionally.
-                </div>
-              </div>
-            </div>
-
-            {/* Input Mode Section */}
-            <div className="border-t pt-4">
-              <label className="text-sm font-medium flex items-center gap-2 mb-2">
-                <Mic className="h-4 w-4" />
-                Input Mode
-              </label>
-              <Select
-                value={inputMode}
-                onValueChange={(value: InputMode) => setInputMode(value)}
-                disabled={isConnected}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="always_on">
-                    Always On (Auto VAD)
-                  </SelectItem>
-                  <SelectItem value="push_to_talk">
-                    Push to Talk (Space Key)
-                  </SelectItem>
-                  <SelectItem value="toggle">Toggle (Space Key)</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                <div>
-                  <strong>Always On:</strong> Automatic voice detection. AI
-                  responds when you stop speaking.
-                </div>
-                <div>
-                  <strong>Push to Talk:</strong> Hold Space key to transmit.
-                  Best for preventing unwanted responses.
-                </div>
-                <div>
-                  <strong>Toggle:</strong> Press Space to start/stop
-                  transmission. Like a walkie-talkie.
-                </div>
-                {inputMode !== "always_on" && (
-                  <div className="pt-1 text-orange-600 font-medium">
-                    ⚠️ Input mode must be set before connecting
+                  <label
+                    htmlFor="microphone-select"
+                    className="text-sm font-medium flex items-center gap-2 mb-2"
+                  >
+                    <Mic className="h-4 w-4" />
+                    Microphone
+                  </label>
+                  <div className="space-y-2">
+                    <Select
+                      value={selectedMicrophone}
+                      onValueChange={setSelectedMicrophone}
+                      disabled={isLoadingDevices || isTestingMicrophone}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select microphone..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {audioDevices.microphones.map((device) => (
+                          <SelectItem
+                            key={device.deviceId}
+                            value={device.deviceId}
+                          >
+                            {device.label ||
+                              `Microphone ${device.deviceId.slice(0, 8)}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {/* Microphone Test */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          console.log(
+                            "[Microphone Test] Button onClick triggered, isTestingMicrophone:",
+                            isTestingMicrophone
+                          );
+                          startMicrophoneTest();
+                        }}
+                        disabled={!selectedMicrophone || isLoadingDevices}
+                        className="gap-2 flex-1"
+                      >
+                        {isTestingMicrophone ? (
+                          <>
+                            <Square className="h-3.5 w-3.5" />
+                            Stop Test
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3.5 w-3.5" />
+                            Test Microphone
+                          </>
+                        )}
+                      </Button>
+                      {isTestingMicrophone && (
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Audio Level</span>
+                            <span>{Math.round(testMicAudioLevel)}%</span>
+                          </div>
+                          <Progress value={testMicAudioLevel} className="h-2" />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+
+                {/* Speaker Selection */}
+                <div>
+                  <label
+                    htmlFor="speaker-select"
+                    className="text-sm font-medium flex items-center gap-2 mb-2"
+                  >
+                    <Speaker className="h-4 w-4" />
+                    Speaker
+                  </label>
+                  <Select
+                    value={selectedSpeaker}
+                    onValueChange={setSelectedSpeaker}
+                    disabled={isLoadingDevices}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select speaker..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {audioDevices.speakers.map((device) => (
+                        <SelectItem
+                          key={device.deviceId}
+                          value={device.deviceId}
+                        >
+                          {device.label ||
+                            `Speaker ${device.deviceId.slice(0, 8)}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Device Count and Refresh */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="text-xs text-muted-foreground">
+                    {audioDevices.microphones.length} microphone(s),{" "}
+                    {audioDevices.speakers.length} speaker(s)
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={enumerateAudioDevices}
+                    disabled={isLoadingDevices}
+                    className="gap-2"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${
+                        isLoadingDevices ? "animate-spin" : ""
+                      }`}
+                    />
+                    Refresh
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Voice Detection Settings Section */}
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Voice Detection</CardTitle>
+                <CardDescription className="text-xs">
+                  Configure how the AI detects when you're speaking
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* VAD Settings */}
+                <div>
+                  <label className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <Settings className="h-4 w-4" />
+                    Sensitivity
+                  </label>
+                  <Select
+                    value={vadMode}
+                    onValueChange={(value: VadMode) => setVadMode(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="conservative">
+                        Conservative (Recommended)
+                      </SelectItem>
+                      <SelectItem value="balanced">Balanced</SelectItem>
+                      <SelectItem value="responsive">Responsive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                    <div>
+                      <strong>Conservative:</strong> Waits for you to finish
+                      speaking. Reduces unwanted responses.
+                    </div>
+                    <div>
+                      <strong>Balanced:</strong> Moderate sensitivity with 800ms
+                      silence detection.
+                    </div>
+                    <div>
+                      <strong>Responsive:</strong> Fast responses, may interrupt
+                      occasionally.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input Mode */}
+                <div>
+                  <label className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <Mic className="h-4 w-4" />
+                    Input Mode
+                  </label>
+                  <Select
+                    value={inputMode}
+                    onValueChange={(value: InputMode) => setInputMode(value)}
+                    disabled={isConnected}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="always_on">
+                        Always On (Auto VAD)
+                      </SelectItem>
+                      <SelectItem value="push_to_talk">
+                        Push to Talk (Space Key)
+                      </SelectItem>
+                      <SelectItem value="toggle">Toggle (Space Key)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                    <div>
+                      <strong>Always On:</strong> Automatic voice detection. AI
+                      responds when you stop speaking.
+                    </div>
+                    <div>
+                      <strong>Push to Talk:</strong> Hold Space key to transmit.
+                      Best for preventing unwanted responses.
+                    </div>
+                    <div>
+                      <strong>Toggle:</strong> Press Space to start/stop
+                      transmission. Like a walkie-talkie.
+                    </div>
+                    {inputMode !== "always_on" && (
+                      <div className="pt-1 text-gray-600 dark:text-gray-400 font-medium">
+                        ⚠️ Input mode must be set before connecting
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* System Audio Section */}
-            <div className="border-t pt-4">
-              <label className="text-sm font-medium flex items-center gap-2 mb-2">
-                <Monitor className="h-4 w-4" />
-                System Audio Capture
-              </label>
-              <div className="space-y-3">
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">
+                  System Audio Capture
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Capture audio from other applications (Zoom, Teams, etc.)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
                     {systemAudioEnabled ? (
-                      <span className="flex items-center gap-2 text-green-600 font-medium">
-                        <span className="h-2 w-2 bg-green-600 rounded-full animate-pulse" />
+                      <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400 font-medium">
+                        <span className="h-2 w-2 bg-gray-600 dark:bg-gray-400 rounded-full animate-pulse" />
                         Capturing system audio
                       </span>
                     ) : (
@@ -1250,12 +881,12 @@ export default function VoiceAgent() {
                     {systemAudioEnabled ? (
                       <>
                         <PhoneOff className="h-4 w-4" />
-                        Stop Capture
+                        Stop
                       </>
                     ) : (
                       <>
                         <Monitor className="h-4 w-4" />
-                        Start Capture
+                        Start
                       </>
                     )}
                   </Button>
@@ -1263,31 +894,26 @@ export default function VoiceAgent() {
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription className="text-xs space-y-2">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <div>
-                          <strong>Step-by-step guide:</strong>
-                        </div>
-                        <ol className="list-decimal list-inside space-y-1 ml-2 mt-1">
-                          <li>Click "Start Capture" button above</li>
-                          <li>
-                            In the browser dialog, select the tab/window with
-                            audio
-                          </li>
-                          <li>
-                            <strong className="text-orange-600">
-                              ✓ Check "Share system audio" or "Share tab audio"
-                            </strong>
-                          </li>
-                          <li>Click "Share" to start capturing</li>
-                        </ol>
-                      </div>
+                    <div>
+                      <strong>Quick Setup:</strong>
+                      <ol className="list-decimal list-inside space-y-1 ml-2 mt-1">
+                        <li>Click "Start" button above</li>
+                        <li>Select the tab/window with audio</li>
+                        <li>
+                          <strong className="text-gray-600 dark:text-gray-400">
+                            ✓ Check "Share system audio" or "Share tab audio"
+                          </strong>
+                        </li>
+                        <li>Click "Share" to start capturing</li>
+                      </ol>
                     </div>
                     <div className="pt-2 border-t">
                       <strong>Note:</strong> System audio capture is{" "}
-                      <strong className="text-green-600">optional</strong>. The
-                      voice agent will work with your microphone only if system
-                      audio isn't available.
+                      <strong className="text-gray-600 dark:text-gray-400">
+                        optional
+                      </strong>
+                      . The voice agent works with your microphone only if
+                      system audio isn't available.
                     </div>
                     <div className="pt-2 border-t">
                       <strong>Browser Support:</strong>
@@ -1299,59 +925,65 @@ export default function VoiceAgent() {
                     </div>
                   </AlertDescription>
                 </Alert>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Refresh Button */}
-            <div className="flex justify-between items-center border-t pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={enumerateAudioDevices}
-                disabled={isLoadingDevices}
-                className="gap-2"
+            {/* Advanced Information (Collapsible) */}
+            <div className="border rounded-lg">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedInfo(!showAdvancedInfo)}
+                className="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-muted/50 transition-colors"
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${
-                    isLoadingDevices ? "animate-spin" : ""
-                  }`}
-                />
-                Refresh Devices
-              </Button>
-              <div className="text-xs text-muted-foreground">
-                {audioDevices.microphones.length} microphone(s),{" "}
-                {audioDevices.speakers.length} speaker(s)
-              </div>
-            </div>
-
-            {/* Info */}
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p>
-                <strong>Device Selection:</strong> The selected microphone and
-                speaker will be used for the voice agent. Make sure to grant
-                permissions when prompted.
-              </p>
-              <div className="text-xs">
-                <p className="font-medium mb-1">
-                  Advanced: Virtual Audio Cables
-                </p>
-                <p>
-                  For better control over system audio routing, install virtual
-                  audio software:
-                </p>
-                <ul className="list-disc list-inside ml-2 mt-1">
-                  <li>Windows: VB-Cable, VoiceMeeter</li>
-                  <li>macOS: BlackHole, Loopback</li>
-                  <li>Linux: PulseAudio virtual sinks</li>
-                </ul>
-                <p className="mt-1">
-                  Then select the virtual device in the dropdowns above.
-                </p>
-              </div>
+                <span className="flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Advanced Information
+                </span>
+                {showAdvancedInfo ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+              {showAdvancedInfo && (
+                <div className="p-4 pt-0 space-y-3 text-sm text-muted-foreground border-t">
+                  <div>
+                    <p className="font-medium mb-1 text-foreground">
+                      Virtual Audio Cables
+                    </p>
+                    <p className="text-xs">
+                      For better control over system audio routing, install
+                      virtual audio software:
+                    </p>
+                    <ul className="list-disc list-inside ml-2 mt-1 text-xs">
+                      <li>Windows: VB-Cable, VoiceMeeter</li>
+                      <li>macOS: BlackHole, Loopback</li>
+                      <li>Linux: PulseAudio virtual sinks</li>
+                    </ul>
+                    <p className="text-xs mt-1">
+                      Then select the virtual device in the dropdowns above.
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <p className="font-medium mb-1 text-foreground">
+                      Device Selection
+                    </p>
+                    <p className="text-xs">
+                      The selected microphone and speaker will be used for the
+                      voice agent. Make sure to grant permissions when prompted.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setIsAudioDialogOpen(false)}>Close</Button>
+            <Button
+              onClick={() => setIsAudioDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Done
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
