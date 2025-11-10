@@ -23,7 +23,14 @@ import {
   isRealtimeMessageItem,
   isUserMessage,
   isAssistantMessage,
+  isAnyToolCall,
+  getToolCallName,
+  getToolCallArguments,
+  getToolCallOutput,
+  getToolCallStatus,
 } from "@/types/realtime-session";
+import { getToolIcon, getToolDisplayName } from "@/lib/tools";
+import type { ToolLanguage } from "@/lib/tools";
 
 interface ConversationHistoryProps {
   history: RealtimeItem[];
@@ -32,15 +39,112 @@ interface ConversationHistoryProps {
   onViewSessions?: () => void;
 }
 
+/**
+ * ToolCallDisplay Sub-component
+ *
+ * Displays tool/function call information with arguments, output, and status.
+ * Per plan: Show tool name with icon, arguments (formatted JSON), results/output, and status.
+ */
+interface ToolCallDisplayProps {
+  item: RealtimeItem;
+  language: ToolLanguage;
+}
+
+function ToolCallDisplay({ item, language }: ToolCallDisplayProps) {
+  const { t } = useTranslation();
+
+  const toolName = getToolCallName(item);
+  const toolArguments = getToolCallArguments(item);
+  const toolOutput = getToolCallOutput(item);
+  const toolStatus = getToolCallStatus(item);
+
+  if (!toolName) {
+    return null;
+  }
+
+  const displayName = getToolDisplayName(toolName, language);
+  const icon = getToolIcon(toolName);
+
+  // Format arguments as pretty JSON
+  let formattedArguments = "";
+  try {
+    if (toolArguments) {
+      const parsed = JSON.parse(toolArguments);
+      formattedArguments = JSON.stringify(parsed, null, 2);
+    }
+  } catch (error) {
+    formattedArguments = toolArguments || "";
+  }
+
+  // Status badge color
+  const statusColor =
+    toolStatus === "completed"
+      ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+      : toolStatus === "in_progress"
+      ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+      : toolStatus === "incomplete"
+      ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"
+      : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200";
+
+  return (
+    <div className="space-y-2 p-3 rounded-lg border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
+      {/* Tool name and status */}
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{icon}</span>
+        <span className="text-sm font-semibold text-foreground">
+          {displayName}
+        </span>
+        {toolStatus && (
+          <Badge className={`text-xs ${statusColor}`}>
+            {t(`tools.toolCall.status.${toolStatus}`)}
+          </Badge>
+        )}
+        <Badge variant="outline" className="text-xs">
+          {t("tools.toolCall.title")}
+        </Badge>
+      </div>
+
+      {/* Arguments */}
+      {formattedArguments && (
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            {t("tools.toolCall.arguments")}:
+          </div>
+          <pre className="text-xs bg-muted/50 p-2 rounded border overflow-x-auto">
+            <code>{formattedArguments}</code>
+          </pre>
+        </div>
+      )}
+
+      {/* Output */}
+      {toolOutput && (
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            {t("tools.toolCall.output")}:
+          </div>
+          <div className="text-sm bg-muted/30 p-2 rounded border">
+            <p className="whitespace-pre-wrap leading-relaxed">{toolOutput}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ConversationHistory({
   history,
   isConnected,
   onClearHistory,
   onViewSessions,
 }: ConversationHistoryProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [showHistory, setShowHistory] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Determine current language for tool display
+  const language = (i18n.language.startsWith("ja")
+    ? "ja"
+    : "en") as ToolLanguage;
 
   // Auto-show history when connected
   useEffect(() => {
@@ -134,6 +238,20 @@ export function ConversationHistory({
               ) : (
                 history
                   .map((item, index) => {
+                    // Check if this is a tool call
+                    const isToolCall = isAnyToolCall(item);
+
+                    // For tool calls, always show them
+                    if (isToolCall) {
+                      return {
+                        item,
+                        index,
+                        itemText: "",
+                        isEmpty: false,
+                        isToolCall: true,
+                      };
+                    }
+
                     const itemText = getItemText(item);
                     const isEmpty = !itemText || itemText.trim().length === 0;
 
@@ -192,33 +310,42 @@ export function ConversationHistory({
                       index,
                       itemText,
                       isEmpty,
+                      isToolCall: false,
                     };
                   })
                   .filter(({ isEmpty }) => !isEmpty)
-                  .map(({ item, index, itemText }) => (
+                  .map(({ item, index, itemText, isToolCall }) => (
                     <div key={index} className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-foreground">
-                          {isUserMessage(item)
-                            ? t("common.you")
-                            : isAssistantMessage(item)
-                            ? t("common.assistant")
-                            : item.type}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {item.type}
-                        </Badge>
-                        {isRealtimeMessageItem(item) && item.role && (
-                          <Badge variant="secondary" className="text-xs">
-                            {item.role}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-foreground">
-                        <p className="whitespace-pre-wrap leading-relaxed">
-                          {itemText}
-                        </p>
-                      </div>
+                      {isToolCall ? (
+                        // Render tool call with special display
+                        <ToolCallDisplay item={item} language={language} />
+                      ) : (
+                        // Render normal message
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              {isUserMessage(item)
+                                ? t("common.you")
+                                : isAssistantMessage(item)
+                                ? t("common.assistant")
+                                : item.type}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {item.type}
+                            </Badge>
+                            {isRealtimeMessageItem(item) && item.role && (
+                              <Badge variant="secondary" className="text-xs">
+                                {item.role}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-foreground">
+                            <p className="whitespace-pre-wrap leading-relaxed">
+                              {itemText}
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))
               )}

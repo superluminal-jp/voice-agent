@@ -5,11 +5,15 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { Mic, Phone, PhoneOff, Settings, History, Square } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Mic, Phone, PhoneOff, Settings, History, Square, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { InputMode } from "@/types/voice-agent";
 import { SystemPromptTemplateSelector } from "./SystemPromptTemplateSelector";
 import type { SystemPromptTemplate } from "@/lib/system-prompt-templates";
+import type { ToolsConfig } from "@/lib/tools";
+import { RagFolderSelector } from "./RagFolderSelector";
 
 interface ConnectionStatusProps {
   isConnected: boolean;
@@ -31,6 +35,9 @@ interface ConnectionStatusProps {
   templates?: SystemPromptTemplate[];
   selectedTemplateId?: string;
   onTemplateSelect?: (templateId: string) => void;
+  // Tools configuration props
+  toolsConfig?: ToolsConfig;
+  onToolsClick?: () => void;
 }
 
 export function ConnectionStatus({
@@ -52,8 +59,15 @@ export function ConnectionStatus({
   templates,
   selectedTemplateId,
   onTemplateSelect,
+  toolsConfig,
+  onToolsClick,
 }: ConnectionStatusProps) {
   const { t } = useTranslation();
+
+  // Calculate enabled tools count
+  const enabledToolsCount = toolsConfig
+    ? Object.values(toolsConfig).filter(Boolean).length
+    : 0;
 
   // When not connected, show prominent Connect button
   if (!isConnected && !isConnecting) {
@@ -84,39 +98,59 @@ export function ConnectionStatus({
 
         {/* System Prompt Template Selector */}
         {templates && selectedTemplateId && onTemplateSelect && (
-          <SystemPromptTemplateSelector
-            templates={templates}
-            selectedTemplateId={selectedTemplateId}
-            onTemplateSelect={onTemplateSelect}
-            onInputModeChange={onInputModeChange}
-            disabled={isConnecting}
-          />
+          <Card className="w-full max-w-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                {t("systemPrompt.templateLabel")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SystemPromptTemplateSelector
+                templates={templates}
+                selectedTemplateId={selectedTemplateId}
+                onTemplateSelect={onTemplateSelect}
+                onInputModeChange={onInputModeChange}
+                disabled={isConnecting}
+              />
+            </CardContent>
+          </Card>
         )}
 
         {/* Input Mode Quick Switcher */}
         {onInputModeChange && (
-          <div className="flex flex-col items-center gap-3 w-full max-w-2xl">
-            <div className="text-xs text-muted-foreground font-medium">
-              {t("connection.inputMode.label")}
-            </div>
-            <div className="flex items-center gap-2 w-full">
-              {(Object.keys(inputModeLabels) as InputMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => onInputModeChange(mode)}
-                  className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg border transition-all duration-200 text-sm font-medium ${
-                    inputMode === mode
-                      ? "border-primary bg-primary/10 text-primary shadow-sm"
-                      : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                  }`}
-                >
-                  <div className="font-medium whitespace-nowrap">{inputModeLabels[mode]}</div>
-                  <div className="text-xs opacity-70 mt-0.5 whitespace-nowrap">
-                    {inputModeDescriptions[mode]}
-                  </div>
-                </button>
-              ))}
-            </div>
+          <Card className="w-full max-w-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                {t("connection.inputMode.label")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 w-full">
+                {(Object.keys(inputModeLabels) as InputMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => onInputModeChange(mode)}
+                    className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg border transition-all duration-200 text-sm font-medium ${
+                      inputMode === mode
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                    }`}
+                  >
+                    <div className="font-medium whitespace-nowrap">{inputModeLabels[mode]}</div>
+                    <div className="text-xs opacity-70 mt-0.5 whitespace-nowrap">
+                      {inputModeDescriptions[mode]}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* RAG Folder Selector - Show when RAG tool is enabled */}
+        {toolsConfig && toolsConfig.rag && (
+          <div className="w-full max-w-2xl">
+            <RagFolderSelector toolsConfig={toolsConfig} />
           </div>
         )}
 
@@ -151,6 +185,22 @@ export function ConnectionStatus({
             <Settings className="h-4 w-4" />
             {t("systemPrompt.title")}
           </Button>
+          {onToolsClick && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToolsClick}
+              className="gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-transparent"
+            >
+              <Wrench className="h-4 w-4" />
+              {t("tools.title")}
+              {enabledToolsCount > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {enabledToolsCount}
+                </Badge>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -317,6 +367,13 @@ export function ConnectionStatus({
         )}
       </div>
 
+      {/* RAG Folder Selector - Show when RAG tool is enabled */}
+      {toolsConfig && toolsConfig.rag && (
+        <div className="w-full max-w-2xl">
+          <RagFolderSelector toolsConfig={toolsConfig} />
+        </div>
+      )}
+
       {/* Secondary actions */}
       <div className="flex items-center gap-2">
         {/* Interrupt button - only show when AI is speaking */}
@@ -329,6 +386,22 @@ export function ConnectionStatus({
           >
             <Square className="h-4 w-4" />
             {t("common.stop")}
+          </Button>
+        )}
+        {onToolsClick && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToolsClick}
+            className="gap-2"
+          >
+            <Wrench className="h-4 w-4" />
+            {t("tools.title")}
+            {enabledToolsCount > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {enabledToolsCount}
+              </Badge>
+            )}
           </Button>
         )}
         <Button

@@ -5,10 +5,8 @@
  * Automatically updates the input mode based on the template's recommendation.
  */
 
-import { useTranslation } from "react-i18next";
 import type { SystemPromptTemplate } from "@/lib/system-prompt-templates";
 import type { InputMode } from "@/types/voice-agent";
-import { FileText } from "lucide-react";
 
 interface SystemPromptTemplateSelectorProps {
   templates: SystemPromptTemplate[];
@@ -25,8 +23,6 @@ export function SystemPromptTemplateSelector({
   onInputModeChange,
   disabled = false,
 }: SystemPromptTemplateSelectorProps) {
-  const { t } = useTranslation();
-
   const handleTemplateChange = (templateId: string) => {
     if (disabled) return;
     
@@ -40,30 +36,24 @@ export function SystemPromptTemplateSelector({
   };
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full max-w-4xl">
-      <div className="text-xs text-muted-foreground font-medium flex items-center gap-2">
-        <FileText className="h-4 w-4" />
-        {t("systemPrompt.templateLabel")}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
-        {templates.map((template) => {
-          const isSelected = template.id === selectedTemplateId;
-          return (
-            <button
-              key={template.id}
-              onClick={() => handleTemplateChange(template.id)}
-              disabled={disabled}
-              className={`text-center p-4 rounded-lg border transition-all duration-200 ${
-                isSelected
-                  ? "border-primary bg-primary/10 text-primary shadow-sm"
-                  : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
-              } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              <div className="font-medium text-sm">{template.name}</div>
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
+      {templates.map((template) => {
+        const isSelected = template.id === selectedTemplateId;
+        return (
+          <button
+            key={template.id}
+            onClick={() => handleTemplateChange(template.id)}
+            disabled={disabled}
+            className={`text-center p-4 rounded-lg border transition-all duration-200 ${
+              isSelected
+                ? "border-primary bg-primary/10 text-primary shadow-sm"
+                : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          >
+            <div className="font-medium text-sm">{template.name}</div>
+          </button>
+        );
+      })}
     </div>
   );
 }

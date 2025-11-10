@@ -154,6 +154,62 @@
     "systemPromptTitle": "現在使用中のシステムプロンプト",
     "systemPromptDescription": "このセッションで使用されているシステムプロンプト"
   },
+  "tools": {
+    "title": "ツール設定",
+    "description": "音声エージェントで使用するツールを有効化・無効化します。ツールはAIにウェブ検索、コード実行、最新情報へのアクセスなどの追加機能を提供します。",
+    "disconnectWarning": "⚠️ ツール設定を変更するには切断してください。ツールは接続前にのみ変更できます。",
+    "defaultTools": "デフォルトツール",
+    "customTools": "カスタムツール",
+    "enabledCount": "{{count}}個有効",
+    "comingSoon": "近日公開",
+    "notAvailableInRealtimeApi": "注意：このツールはまだRealtime APIで利用できません。サポートが追加されると有効になります。",
+    "info": "ツールはAIアシスタントに操作を実行したり情報にアクセスしたりする能力を与えます。会話中にAIに使用してほしいツールを有効にしてください。",
+    "web_search": {
+      "name": "ウェブ検索",
+      "description": "インターネットで最新情報やリアルタイムデータを検索します。"
+    },
+    "code_interpreter": {
+      "name": "コードインタープリター",
+      "description": "サンドボックス環境でPythonコードを実行し、計算やデータ分析を行います。"
+    },
+    "image_generation": {
+      "name": "画像生成",
+      "description": "テキストの説明からDALL-Eを使用して画像を生成します。"
+    },
+    "current_time": {
+      "name": "現在時刻",
+      "description": "オプションでタイムゾーン変換を含む現在の日時を取得します。"
+    },
+    "weather": {
+      "name": "天気情報",
+      "description": "任意の場所の気温、天候状況などの天気情報を取得します。"
+    },
+    "rag": {
+      "name": "ドキュメント検索 (RAG)",
+      "description": "意味検索を使用してローカルのテキストファイルを検索します。フォルダを選択してドキュメントをインデックス化し、その内容に基づいて質問に答えます。",
+      "selectFolder": "フォルダを選択",
+      "changeFolder": "フォルダを変更",
+      "indexing": "インデックス化中...",
+      "indexed": "フォルダがインデックス化されました",
+      "noFolderSelected": "フォルダが選択されていません。ドキュメント検索を有効にするには、フォルダを選択してください。",
+      "stats": "{{files}}ファイル、{{chunks}}チャンク",
+      "clear": "クリア",
+      "clearConfirm": "インデックス化されたフォルダをクリアしてもよろしいですか？",
+      "browserNotSupported": "このブラウザではFile System Access APIがサポートされていません。Chrome、Edge、またはSafari 15.2+を使用してください。",
+      "indexingError": "フォルダのインデックス化に失敗しました"
+    },
+    "toolCall": {
+      "title": "ツール呼び出し",
+      "arguments": "引数",
+      "output": "出力",
+      "status": {
+        "in_progress": "実行中...",
+        "completed": "完了",
+        "incomplete": "未完了",
+        "failed": "失敗"
+      }
+    }
+  },
   "sessionHistory": {
     "title": "セッション履歴",
     "description": "保存された会話セッションを表示・管理します",

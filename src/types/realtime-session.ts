@@ -178,6 +178,76 @@ export function isToolCallItem(
 }
 
 /**
+ * Type guard: Check if item is an MCP call
+ */
+export function isMcpCallItem(
+  item: RealtimeItem
+): item is RealtimeMcpCallItem {
+  return item.type === "mcp_call" || item.type === "mcp_tool_call";
+}
+
+/**
+ * Type guard: Check if item is any type of tool/function call (including MCP)
+ */
+export function isAnyToolCall(item: RealtimeItem): boolean {
+  return isToolCallItem(item) || isMcpCallItem(item);
+}
+
+/**
+ * Get tool call name from any tool/function call item
+ */
+export function getToolCallName(item: RealtimeItem): string | null {
+  if (isToolCallItem(item)) {
+    return item.name || null;
+  }
+  if (isMcpCallItem(item)) {
+    return item.name || null;
+  }
+  return null;
+}
+
+/**
+ * Get tool call arguments from any tool/function call item
+ */
+export function getToolCallArguments(item: RealtimeItem): string | null {
+  if (isToolCallItem(item)) {
+    return item.arguments || null;
+  }
+  if (isMcpCallItem(item)) {
+    return item.arguments || null;
+  }
+  return null;
+}
+
+/**
+ * Get tool call output from any tool/function call item
+ */
+export function getToolCallOutput(item: RealtimeItem): string | null {
+  if (isToolCallItem(item)) {
+    return item.output || null;
+  }
+  if (isMcpCallItem(item)) {
+    return item.output || null;
+  }
+  return null;
+}
+
+/**
+ * Get tool call status from any tool/function call item
+ */
+export function getToolCallStatus(
+  item: RealtimeItem
+): "in_progress" | "completed" | "incomplete" | null {
+  if (isToolCallItem(item)) {
+    return item.status || null;
+  }
+  if (isMcpCallItem(item)) {
+    return item.status || null;
+  }
+  return null;
+}
+
+/**
  * Get message item ID
  * Per OpenAI API: items use `itemId` field, not `id`
  */

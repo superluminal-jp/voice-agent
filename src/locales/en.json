@@ -155,6 +155,62 @@
     "systemPromptTitle": "Current System Prompt",
     "systemPromptDescription": "The system prompt used for this session"
   },
+  "tools": {
+    "title": "Tools Configuration",
+    "description": "Enable or disable tools for the voice agent. Tools provide the AI with additional capabilities like web search, code execution, and accessing current information.",
+    "disconnectWarning": "⚠️ Disconnect to modify tool configuration. Tools can only be changed before connecting.",
+    "defaultTools": "Default Tools",
+    "customTools": "Custom Tools",
+    "enabledCount": "{{count}} enabled",
+    "comingSoon": "Coming Soon",
+    "notAvailableInRealtimeApi": "Note: This tool is not yet available in the Realtime API. It will be enabled when support is added.",
+    "info": "Tools give the AI assistant the ability to perform actions and access information. Enable the tools you want the AI to use during conversations.",
+    "web_search": {
+      "name": "Web Search",
+      "description": "Search the internet for current information and real-time data."
+    },
+    "code_interpreter": {
+      "name": "Code Interpreter",
+      "description": "Execute Python code in a sandboxed environment for calculations and data analysis."
+    },
+    "image_generation": {
+      "name": "Image Generation",
+      "description": "Generate images using DALL-E based on text descriptions."
+    },
+    "current_time": {
+      "name": "Current Time",
+      "description": "Get the current date and time with optional timezone conversion."
+    },
+    "weather": {
+      "name": "Weather Information",
+      "description": "Get weather information for any location including temperature, conditions, and more."
+    },
+    "rag": {
+      "name": "Document Search (RAG)",
+      "description": "Search through local text files using semantic search. Select a folder to index documents and answer questions based on their content.",
+      "selectFolder": "Select Folder",
+      "changeFolder": "Change Folder",
+      "indexing": "Indexing...",
+      "indexed": "Folder indexed",
+      "noFolderSelected": "No folder selected. Select a folder to enable document search.",
+      "stats": "{{files}} files, {{chunks}} chunks",
+      "clear": "Clear",
+      "clearConfirm": "Are you sure you want to clear the indexed folder?",
+      "browserNotSupported": "File System Access API is not supported in this browser. Please use Chrome, Edge, or Safari 15.2+.",
+      "indexingError": "Failed to index folder"
+    },
+    "toolCall": {
+      "title": "Tool Call",
+      "arguments": "Arguments",
+      "output": "Output",
+      "status": {
+        "in_progress": "In progress...",
+        "completed": "Completed",
+        "incomplete": "Incomplete",
+        "failed": "Failed"
+      }
+    }
+  },
   "sessionHistory": {
     "title": "Session History",
     "description": "View and manage your saved conversation sessions",

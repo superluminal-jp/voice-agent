@@ -69,6 +69,7 @@ import { ErrorAlert } from "./voice-agent/ErrorAlert";
 import { ConversationHistory } from "./voice-agent/ConversationHistory";
 import { TextInput } from "./voice-agent/TextInput";
 import { SessionHistoryList } from "./voice-agent/SessionHistoryList";
+import { ToolsConfigDialog } from "./voice-agent/ToolsConfigDialog";
 import { useTranslation } from "react-i18next";
 import {
   getSystemPromptTemplates,
@@ -89,6 +90,12 @@ import {
   isAssistantMessage,
   getItemId,
 } from "@/types/realtime-session";
+import {
+  DEFAULT_TOOLS_CONFIG,
+  getEnabledTools,
+  type ToolsConfig,
+  type ToolLanguage,
+} from "@/lib/tools";
 
 export default function VoiceAgent() {
   const { t, i18n } = useTranslation();
@@ -114,6 +121,11 @@ export default function VoiceAgent() {
   const [isAudioDialogOpen, setIsAudioDialogOpen] = useState(false);
   const [isSessionHistoryDialogOpen, setIsSessionHistoryDialogOpen] =
     useState(false);
+
+  // Tools configuration state
+  const [toolsConfig, setToolsConfig] =
+    useState<ToolsConfig>(DEFAULT_TOOLS_CONFIG);
+  const [isToolsDialogOpen, setIsToolsDialogOpen] = useState(false);
 
   // Session management
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -252,11 +264,30 @@ export default function VoiceAgent() {
       // Per OpenAI API: ephemeral keys are scoped to a session and expire after use
       const ephemeralKey = await generateEphemeralKey();
 
-      // Create agent with current system prompt
+      // Get enabled tools based on configuration and current language
+      // Per OpenAI Agents SDK: tools can be passed to RealtimeAgent constructor
+      const language = (
+        i18n.language.startsWith("ja") ? "ja" : "en"
+      ) as ToolLanguage;
+      const tools = getEnabledTools(toolsConfig, language);
+
+      // Log enabled tools (development only)
+      if (process.env.NODE_ENV === "development") {
+        console.log("[VoiceAgent] Enabled tools:", {
+          config: toolsConfig,
+          language,
+          toolCount: tools.length,
+          toolNames: tools.map((t: any) => t.name || t.type),
+        });
+      }
+
+      // Create agent with current system prompt and tools
       // Per OpenAI API: agent instructions define behavior and personality
+      // Per OpenAI Agents SDK: tools array provides function calling capabilities
       const agent = new RealtimeAgent({
         name: "Assistant",
         instructions: systemPrompt,
+        tools: tools.length > 0 ? tools : undefined,
       });
 
       // Get microphone stream with device constraints and audio preprocessing
@@ -1092,6 +1123,8 @@ export default function VoiceAgent() {
             templates={SYSTEM_PROMPT_TEMPLATES}
             selectedTemplateId={selectedTemplateId}
             onTemplateSelect={handleTemplateSelect}
+            toolsConfig={toolsConfig}
+            onToolsClick={() => setIsToolsDialogOpen(true)}
           />
 
           {/* Error Display */}
@@ -1706,6 +1739,15 @@ export default function VoiceAgent() {
         open={isSessionHistoryDialogOpen}
         onOpenChange={setIsSessionHistoryDialogOpen}
         onLoadSession={handleLoadSession}
+      />
+
+      {/* Tools Configuration Dialog */}
+      <ToolsConfigDialog
+        open={isToolsDialogOpen}
+        onOpenChange={setIsToolsDialogOpen}
+        config={toolsConfig}
+        onConfigChange={setToolsConfig}
+        isConnected={isConnected}
       />
     </div>
   );
