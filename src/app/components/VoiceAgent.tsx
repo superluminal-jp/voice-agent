@@ -68,6 +68,7 @@ import { ConnectionStatus } from "./voice-agent/ConnectionStatus";
 import { ErrorAlert } from "./voice-agent/ErrorAlert";
 import { ConversationHistory } from "./voice-agent/ConversationHistory";
 import { TextInput } from "./voice-agent/TextInput";
+import { SessionHistoryList } from "./voice-agent/SessionHistoryList";
 import { useTranslation } from "react-i18next";
 import {
   getSystemPromptTemplates,
@@ -77,6 +78,10 @@ import {
 import {
   generateSessionId,
   validateHistory,
+  prepareHistoryForRestore,
+  saveSession,
+  deleteSession,
+  type SavedSession,
 } from "@/lib/session-storage";
 import {
   isRealtimeMessageItem,
@@ -107,6 +112,8 @@ export default function VoiceAgent() {
   const [selectedTemplateId, setSelectedTemplateId] =
     useState<string>("default");
   const [isAudioDialogOpen, setIsAudioDialogOpen] = useState(false);
+  const [isSessionHistoryDialogOpen, setIsSessionHistoryDialogOpen] =
+    useState(false);
 
   // Session management
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -254,20 +261,43 @@ export default function VoiceAgent() {
 
       // Get microphone stream with device constraints and audio preprocessing
       // Per Web Audio API best practices: enable echo cancellation, noise suppression, and AGC
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: selectedMicrophone
-          ? {
-              deviceId: { exact: selectedMicrophone },
-              echoCancellation: true, // Prevents acoustic feedback
-              noiseSuppression: true, // Filters background noise
-              autoGainControl: true, // Normalizes volume levels
-            }
-          : {
+      // Use 'ideal' instead of 'exact' to allow fallback to default device if selected device is unavailable
+      let micStream: MediaStream;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: selectedMicrophone
+            ? {
+                deviceId: { ideal: selectedMicrophone },
+                echoCancellation: true, // Prevents acoustic feedback
+                noiseSuppression: true, // Filters background noise
+                autoGainControl: true, // Normalizes volume levels
+              }
+            : {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+        });
+      } catch (error) {
+        // If device constraint fails, retry with default device
+        if (
+          error instanceof DOMException &&
+          error.name === "OverconstrainedError"
+        ) {
+          console.warn(
+            "[VoiceAgent] Selected microphone unavailable, falling back to default device"
+          );
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
               echoCancellation: true,
               noiseSuppression: true,
               autoGainControl: true,
             },
-      });
+          });
+        } else {
+          throw error;
+        }
+      }
 
       // Store microphone stream reference for cleanup and state for audio level monitoring
       micStreamRef.current = micStream;
@@ -307,7 +337,7 @@ export default function VoiceAgent() {
       // - config.audio.input.turnDetection: VAD configuration (null for PTT/Toggle modes = manual control)
       // For PTT/Toggle modes, turnDetection is null to disable automatic turn ending
       // This allows manual control - user must explicitly end turns
-      // 
+      //
       // Note: Additional config options available (primarily for WebSocket transport):
       // - config.inputAudioFormat: 'pcm16' | 'g711_ulaw' | 'g711_alaw' (default: 'pcm16')
       // - config.outputAudioFormat: 'pcm16' | 'g711_ulaw' | 'g711_alaw' (default: 'pcm16')
@@ -358,26 +388,40 @@ export default function VoiceAgent() {
               index,
               type: item.type,
               role: isRealtimeMessageItem(item) ? item.role : undefined,
-              status: isRealtimeMessageItem(item) ? item.status : undefined,
-              hasContent: !!item.content,
-              contentType: Array.isArray(item.content) ? "array" : typeof item.content,
+              status:
+                isRealtimeMessageItem(item) &&
+                (isUserMessage(item) || isAssistantMessage(item))
+                  ? item.status
+                  : undefined,
+              hasContent: isRealtimeMessageItem(item) ? !!item.content : false,
+              contentType: isRealtimeMessageItem(item)
+                ? Array.isArray(item.content)
+                  ? "array"
+                  : typeof item.content
+                : undefined,
             })),
           });
         }
-        
+
         // Update local state with the full history from the session
         // Per OpenAI API docs: history_updated returns the full history of the session
         // We can also access session.history directly, but using the event parameter is more reliable
         setConversationHistory(history);
-        
-        // DISABLED: Auto-save functionality removed
-        // Since session restoration is disabled, we don't need to save sessions
-        // This prevents accumulating potentially malformed data in localStorage
-        if (process.env.NODE_ENV === "development") {
-          console.log("[VoiceAgent] History updated (auto-save disabled):", {
-            historyLength: history.length,
-            sessionId,
+
+        // Auto-save to localStorage with current agent config
+        // Per OpenAI API: save session after each history update for persistence
+        if (sessionId && agentRef.current) {
+          saveSession(sessionId, history, {
+            name: agentRef.current.name,
+            instructions: systemPrompt,
           });
+
+          if (process.env.NODE_ENV === "development") {
+            console.log("[VoiceAgent] Auto-saved session:", {
+              historyLength: history.length,
+              sessionId,
+            });
+          }
         }
         // Auto-scroll is handled by ConversationHistory component
       });
@@ -439,29 +483,31 @@ export default function VoiceAgent() {
             errorString: String(error),
             isError: error instanceof Error,
           };
-          
+
           if (error && typeof error === "object") {
-            errorDetails.errorConstructor = (error as { constructor?: { name?: string } }).constructor?.name;
+            errorDetails.errorConstructor = (
+              error as { constructor?: { name?: string } }
+            ).constructor?.name;
             try {
               errorDetails.errorJSON = JSON.stringify(error, null, 2);
             } catch {
               errorDetails.errorJSON = "[Unable to stringify error]";
             }
           }
-          
+
           if (error instanceof Error) {
             errorDetails.errorStack = error.stack;
             errorDetails.errorName = error.name;
           }
-          
+
           console.error("[VoiceAgent] Session error:", errorDetails);
         }
-        
+
         // Extract error message from various error formats
         // Per OpenAI Realtime API: errors can be nested structures like error.error.error.message
         // Also handles standard Error objects, string errors, and API error responses
         let errorMessage = "An unknown session error occurred";
-        
+
         if (error instanceof Error) {
           // Standard Error object - use message or name
           errorMessage = error.message || error.name || errorMessage;
@@ -471,13 +517,13 @@ export default function VoiceAgent() {
         } else if (error && typeof error === "object") {
           // Handle error objects that might have message, error, or other properties
           const errorObj = error as Record<string, unknown>;
-          
+
           // Check for nested error structure (OpenAI Realtime API format)
           // Common patterns: error.error.error.message, error.error.message, error.message
           let nestedError = errorObj;
           let depth = 0;
           const maxDepth = 3; // Prevent infinite loops
-          
+
           while (
             depth < maxDepth &&
             nestedError.error &&
@@ -486,9 +532,9 @@ export default function VoiceAgent() {
             nestedError = nestedError.error as Record<string, unknown>;
             depth++;
           }
-          
+
           // Try to extract message from various possible locations
-          const message = 
+          const message =
             (nestedError.message as string) ||
             (errorObj.message as string) ||
             (errorObj.error as string) ||
@@ -497,7 +543,7 @@ export default function VoiceAgent() {
             (errorObj.code as string) ||
             (nestedError.type as string) ||
             (errorObj.type as string);
-          
+
           if (message && typeof message === "string") {
             errorMessage = message;
           } else {
@@ -519,7 +565,7 @@ export default function VoiceAgent() {
           // Fallback: convert to string
           errorMessage = String(error);
         }
-        
+
         setError(errorMessage);
         // Don't automatically disconnect on error - let user decide
         // Some errors may be recoverable (e.g., temporary network issues)
@@ -530,16 +576,79 @@ export default function VoiceAgent() {
       agentRef.current = agent;
       sessionRef.current = session;
 
-      // DISABLED: Session restoration functionality removed to prevent API errors
-      // Always start with a fresh conversation without loading history
-      // This prevents "Missing required parameter" errors from malformed history items
-      if (process.env.NODE_ENV === "development") {
-        console.log("[VoiceAgent] Starting new conversation (history loading disabled)");
-        if (initialHistory && initialHistory.length > 0) {
-          console.log(`[VoiceAgent] Ignoring ${initialHistory.length} history items (loading disabled)`);
-        }
-        if (conversationHistory.length > 0) {
-          console.log(`[VoiceAgent] Ignoring ${conversationHistory.length} stored history items (loading disabled)`);
+      // Load initial history if provided (session restoration)
+      // Per OpenAI API: updateHistory() must be called AFTER setting up history_updated listener
+      // This ensures we capture all history updates including those from restoration
+      if (initialHistory && initialHistory.length > 0) {
+        // Prepare history for restoration: convert audio content to text content
+        // Per OpenAI API: updateHistory() does not accept output_audio, only text content
+        const validatedHistory = prepareHistoryForRestore(initialHistory);
+
+        if (validatedHistory.length > 0) {
+          try {
+            // Debug: Log detailed history structure before sending to API
+            if (process.env.NODE_ENV === "development") {
+              console.log("[VoiceAgent] About to load history:", {
+                originalLength: initialHistory.length,
+                validatedLength: validatedHistory.length,
+                sessionId,
+                items: validatedHistory.map((item, index) => ({
+                  index,
+                  type: item.type,
+                  role: isRealtimeMessageItem(item) ? item.role : undefined,
+                  contentLength:
+                    isRealtimeMessageItem(item) && Array.isArray(item.content)
+                      ? item.content.length
+                      : 0,
+                  contentTypes:
+                    isRealtimeMessageItem(item) && Array.isArray(item.content)
+                      ? item.content.map((c: any) => ({
+                          type: c.type,
+                          hasText: "text" in c,
+                          hasTranscript: "transcript" in c,
+                          hasAudio: "audio" in c,
+                          textValue: c.text
+                            ? c.text.substring(0, 50)
+                            : undefined,
+                          transcriptValue: c.transcript
+                            ? c.transcript.substring(0, 50)
+                            : undefined,
+                        }))
+                      : undefined,
+                })),
+              });
+            }
+
+            // Call updateHistory to restore conversation context
+            // Per OpenAI API: this loads the history into the session for context
+            await session.updateHistory(validatedHistory);
+
+            if (process.env.NODE_ENV === "development") {
+              console.log("[VoiceAgent] Loaded session history successfully:", {
+                originalLength: initialHistory.length,
+                validatedLength: validatedHistory.length,
+                sessionId,
+              });
+            }
+          } catch (error) {
+            console.error("[VoiceAgent] Error loading history:", error);
+
+            // Debug: Log the full validated history on error
+            if (process.env.NODE_ENV === "development") {
+              console.error(
+                "[VoiceAgent] Failed history data:",
+                JSON.stringify(validatedHistory, null, 2)
+              );
+            }
+
+            setError(
+              "Failed to load session history. Starting fresh conversation."
+            );
+          }
+        } else {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[VoiceAgent] No valid history items to load");
+          }
         }
       }
 
@@ -577,22 +686,76 @@ export default function VoiceAgent() {
   };
 
   // Clear conversation history
-  // MODIFIED: Only clears local state, does not call updateHistory()
-  // Since session restoration is disabled, we just reset the local state
-  const clearHistory = () => {
-    // Update local state
+  // Per OpenAI API: clears both local state and API session context
+  const clearHistory = async () => {
+    // Clear API session history if connected
+    // Per OpenAI API: updateHistory([]) clears the session history
+    if (sessionRef.current && isConnected) {
+      try {
+        await sessionRef.current.updateHistory([]);
+        console.log("[VoiceAgent] Cleared session history in API");
+      } catch (error) {
+        console.error("[VoiceAgent] Error clearing API history:", error);
+      }
+    }
+
+    // Clear local state
     setConversationHistory([]);
-    
-    // Clear saved session when history is cleared
+
+    // Clear saved session from localStorage
     if (currentSessionId) {
+      deleteSession(currentSessionId);
       setCurrentSessionId(null);
     }
-    
+
     if (process.env.NODE_ENV === "development") {
-      console.log("[VoiceAgent] Cleared conversation history (local state only, session history loading disabled)");
+      console.log("[VoiceAgent] Cleared conversation history");
     }
   };
 
+  // Load a saved session
+  // Per OpenAI API: disconnect, restore config, and reconnect with history
+  const handleLoadSession = async (session: SavedSession) => {
+    try {
+      // Disconnect current session if connected
+      if (isConnected) {
+        await disconnect();
+      }
+
+      // Set the session ID for the loaded session
+      setCurrentSessionId(session.id);
+
+      // Restore agent config if saved
+      if (session.agentConfig) {
+        const agentInstructions = session.agentConfig.instructions;
+        setSystemPrompt(agentInstructions);
+        // Find matching template if exists
+        const matchingTemplate = SYSTEM_PROMPT_TEMPLATES.find(
+          (t) => t.prompt === agentInstructions
+        );
+        if (matchingTemplate) {
+          setSelectedTemplateId(matchingTemplate.id);
+        }
+      }
+
+      // Connect with the loaded history
+      // Per OpenAI API: connect() with initialHistory will call updateHistory()
+      await connect(session.history);
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("[VoiceAgent] Loaded session:", {
+          sessionId: session.id,
+          historyLength: session.history.length,
+          messageCount: session.messageCount,
+        });
+      }
+    } catch (error) {
+      console.error("[VoiceAgent] Error loading session:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load session"
+      );
+    }
+  };
 
   // Handle sending text message
   const handleSendMessage = async (message: string) => {
@@ -647,13 +810,13 @@ export default function VoiceAgent() {
           name: agentRef.current.name,
           instructions: tempPrompt,
         });
-        
+
         // Update agent in session using official API method
         sessionRef.current.updateAgent(updatedAgent);
-        
+
         // Update local agent reference
         agentRef.current = updatedAgent;
-        
+
         if (process.env.NODE_ENV === "development") {
           console.log("[VoiceAgent] Agent updated via updateAgent():", {
             name: updatedAgent.name,
@@ -696,6 +859,39 @@ export default function VoiceAgent() {
   // Disconnect from Realtime API
   // Per OpenAI API docs: session.close() closes the connection and cleans up resources
   const disconnect = async () => {
+    // Save final state before disconnecting
+    // Per best practices: persist session state before cleanup
+    if (
+      currentSessionId &&
+      sessionRef.current &&
+      conversationHistory.length > 0
+    ) {
+      try {
+        saveSession(
+          currentSessionId,
+          conversationHistory,
+          agentRef.current
+            ? {
+                name: agentRef.current.name,
+                instructions: systemPrompt,
+              }
+            : undefined
+        );
+
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            "[VoiceAgent] Saved final session state before disconnect:",
+            {
+              sessionId: currentSessionId,
+              historyLength: conversationHistory.length,
+            }
+          );
+        }
+      } catch (error) {
+        console.error("[VoiceAgent] Error saving final state:", error);
+      }
+    }
+
     if (sessionRef.current) {
       try {
         // Note: close() method may not be in TypeScript type definitions yet,
@@ -1504,6 +1700,13 @@ export default function VoiceAgent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Session History Dialog */}
+      <SessionHistoryList
+        open={isSessionHistoryDialogOpen}
+        onOpenChange={setIsSessionHistoryDialogOpen}
+        onLoadSession={handleLoadSession}
+      />
     </div>
   );
 }
