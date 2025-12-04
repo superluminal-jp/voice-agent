@@ -187,7 +187,3 @@ NEXT_PUBLIC_OPENAI_API_KEY=your_production_openai_api_key
 npm run build
 npm start
 ```
-
-## License
-
-MIT License - see LICENSE file for details.
