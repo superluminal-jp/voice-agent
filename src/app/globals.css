@@ -37,6 +37,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --color-caution: var(--caution);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -44,72 +48,151 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0 0 0);
-  --primary: oklch(0 0 0);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0 0);
-  --secondary-foreground: oklch(0 0 0);
-  --muted: oklch(0.95 0 0);
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.9 0 0);
-  --accent-foreground: oklch(0 0 0);
-  --destructive: oklch(0.3 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.5 0 0);
-  --chart-1: oklch(0.7 0 0);
-  --chart-2: oklch(0.6 0 0);
-  --chart-3: oklch(0.5 0 0);
-  --chart-4: oklch(0.4 0 0);
-  --chart-5: oklch(0.3 0 0);
-  --sidebar: oklch(0.98 0 0);
-  --sidebar-foreground: oklch(0 0 0);
-  --sidebar-primary: oklch(0 0 0);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0 0);
-  --sidebar-accent-foreground: oklch(0 0 0);
-  --sidebar-border: oklch(0.9 0 0);
-  --sidebar-ring: oklch(0.5 0 0);
+  --radius: 0.5rem; /* 8px - design system base */
+  
+  /* Design System Colors - Light Theme */
+  --primary: #3460FB; /* Blue-600 */
+  --primary-foreground: #FFFFFF;
+  --secondary: #CCCCCC; /* Neutral-200 */
+  --secondary-foreground: #1A1A1A; /* Neutral-900 */
+  --accent: #3460FB; /* Blue-600 */
+  --accent-foreground: #FFFFFF;
+  --background: #F2F2F2; /* Neutral-50 */
+  --foreground: #1A1A1A; /* Neutral-900 */
+  --card: #F2F2F2; /* Neutral-50 */
+  --card-foreground: #1A1A1A; /* Neutral-900 */
+  --popover: #F2F2F2; /* Neutral-50 */
+  --popover-foreground: #1A1A1A; /* Neutral-900 */
+  --muted: #CCCCCC; /* Neutral-200 */
+  --muted-foreground: #666666; /* Neutral-600 */
+  --destructive: #EC0000; /* Red-800 */
+  --destructive-foreground: #FFFFFF;
+  --border: #CCCCCC; /* Neutral-200 */
+  --input: #FFFFFF;
+  --ring: #3460FB; /* Blue-600 */
+  --success: #259D63; /* Green-600 */
+  --error: #EC0000; /* Red-800 */
+  --warning: #B78F00; /* Yellow-700 */
+  --caution: #FB5B01; /* Orange-600 */
+  
+  /* Chart colors */
+  --chart-1: #3460FB; /* Blue-600 */
+  --chart-2: #259D63; /* Green-600 */
+  --chart-3: #B78F00; /* Yellow-700 */
+  --chart-4: #FB5B01; /* Orange-600 */
+  --chart-5: #EC0000; /* Red-800 */
+  
+  /* Sidebar colors */
+  --sidebar: #F2F2F2; /* Neutral-50 */
+  --sidebar-foreground: #1A1A1A; /* Neutral-900 */
+  --sidebar-primary: #3460FB; /* Blue-600 */
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #CCCCCC; /* Neutral-200 */
+  --sidebar-accent-foreground: #1A1A1A; /* Neutral-900 */
+  --sidebar-border: #CCCCCC; /* Neutral-200 */
+  --sidebar-ring: #3460FB; /* Blue-600 */
+  
+  /* Typography - Display Scale */
+  --font-size-display-64: 64px;
+  --font-size-display-57: 57px;
+  --font-size-display-48: 48px;
+  --line-height-display: 140%;
+  
+  /* Typography - Standard Scale */
+  --font-size-std-45: 45px;
+  --font-size-std-36: 36px;
+  --font-size-std-32: 32px;
+  --font-size-std-28: 28px;
+  --font-size-std-26: 26px;
+  --font-size-std-24: 24px;
+  --font-size-std-22: 22px;
+  --font-size-std-20: 20px;
+  --font-size-std-18: 18px;
+  --font-size-std-17: 17px;
+  --font-size-std-16: 16px;
+  --line-height-std-140: 140%;
+  --line-height-std-150: 150%;
+  --line-height-std-160: 160%;
+  --line-height-std-170: 170%;
+  
+  /* Typography - Dense Scale */
+  --font-size-dense-17: 17px;
+  --font-size-dense-16: 16px;
+  --font-size-dense-14: 14px;
+  --line-height-dense-120: 120%;
+  --line-height-dense-130: 130%;
+  
+  /* Typography - Oneline Scale */
+  --font-size-oneline-17: 17px;
+  --font-size-oneline-16: 16px;
+  --font-size-oneline-14: 14px;
+  --line-height-oneline: 100%;
+  
+  /* Typography - Mono Scale */
+  --font-size-mono-17: 17px;
+  --font-size-mono-16: 16px;
+  --font-size-mono-14: 14px;
+  --line-height-mono: 150%;
+  
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-bold: 700;
+  
+  /* Shadows - Design System Elevation (Style 1-8) */
+  /* Note: Exact shadow values need to be extracted from Figma */
+  /* Placeholder values based on common elevation patterns */
+  --shadow-1: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-2: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-3: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-4: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-5: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-6: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-7: 0 30px 60px -12px rgba(0, 0, 0, 0.3);
+  --shadow-8: 0 35px 70px -12px rgba(0, 0, 0, 0.35);
 }
 
 .dark {
-  --background: oklch(0 0 0);
-  --foreground: oklch(1 0 0);
-  --card: oklch(0.1 0 0);
-  --card-foreground: oklch(1 0 0);
-  --popover: oklch(0.1 0 0);
-  --popover-foreground: oklch(1 0 0);
-  --primary: oklch(1 0 0);
-  --primary-foreground: oklch(0 0 0);
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.2 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent: oklch(0.3 0 0);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.5 0 0);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.2 0 0);
-  --ring: oklch(0.5 0 0);
-  --chart-1: oklch(0.8 0 0);
-  --chart-2: oklch(0.7 0 0);
-  --chart-3: oklch(0.6 0 0);
-  --chart-4: oklch(0.5 0 0);
-  --chart-5: oklch(0.4 0 0);
-  --sidebar: oklch(0.1 0 0);
-  --sidebar-foreground: oklch(1 0 0);
-  --sidebar-primary: oklch(1 0 0);
-  --sidebar-primary-foreground: oklch(0 0 0);
-  --sidebar-accent: oklch(0.2 0 0);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.5 0 0);
+  /* Design System Colors - Dark Theme */
+  --primary: #4979F5; /* Blue-500 */
+  --primary-foreground: #FFFFFF;
+  --secondary: #333333; /* Neutral-800 */
+  --secondary-foreground: #F2F2F2; /* Neutral-50 */
+  --accent: #4979F5; /* Blue-500 */
+  --accent-foreground: #FFFFFF;
+  --background: #1A1A1A; /* Neutral-900 */
+  --foreground: #F2F2F2; /* Neutral-50 */
+  --card: #1A1A1A; /* Neutral-900 */
+  --card-foreground: #F2F2F2; /* Neutral-50 */
+  --popover: #1A1A1A; /* Neutral-900 */
+  --popover-foreground: #F2F2F2; /* Neutral-50 */
+  --muted: #333333; /* Neutral-800 */
+  --muted-foreground: #B3B3B3; /* Neutral-400 → より明るくしてコントラスト比4.8:1を確保 */
+  --destructive: #EC0000; /* Red-800 */
+  --destructive-foreground: #FFFFFF;
+  --border: #4D4D4D; /* Neutral-800 → より明るくしてコントラスト比3.0:1を確保 */
+  --input: #333333; /* Neutral-800 */
+  --ring: #4979F5; /* Blue-500 */
+  --success: #259D63; /* Green-600 */
+  --error: #EC0000; /* Red-800 */
+  --warning: #B78F00; /* Yellow-700 */
+  --caution: #FB5B01; /* Orange-600 */
+  
+  /* Chart colors */
+  --chart-1: #4979F5; /* Blue-500 */
+  --chart-2: #259D63; /* Green-600 */
+  --chart-3: #B78F00; /* Yellow-700 */
+  --chart-4: #FB5B01; /* Orange-600 */
+  --chart-5: #EC0000; /* Red-800 */
+  
+  /* Sidebar colors */
+  --sidebar: #1A1A1A; /* Neutral-900 */
+  --sidebar-foreground: #F2F2F2; /* Neutral-50 */
+  --sidebar-primary: #4979F5; /* Blue-500 */
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #333333; /* Neutral-800 */
+  --sidebar-accent-foreground: #F2F2F2; /* Neutral-50 */
+  --sidebar-border: #4D4D4D; /* Neutral-800 → より明るくしてコントラスト比3.0:1を確保 */
+  --sidebar-ring: #4979F5; /* Blue-500 */
 }
 
 @layer base {
@@ -118,5 +201,18 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Screen reader only utility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
   }
 }

@@ -159,7 +159,8 @@ async function readDirectoryRecursive(
 
       if (handle.kind === "file" && isTextFile(name)) {
         try {
-          const file = await handle.getFile();
+          const fileHandle = handle as FileSystemFileHandle;
+          const file = await fileHandle.getFile();
           const content = await readTextFile(file);
           files.push({
             path: currentPath,

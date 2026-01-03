@@ -99,7 +99,7 @@ export async function generateEphemeralKey(): Promise<string> {
 interface ContentItem {
   type?: "input_text" | "input_audio" | "output_text" | "output_audio" | "text" | "transcript";
   text?: string;
-  transcript?: string;
+  transcript?: string | null;
   audio?: string | null;
   content?: string;
   value?: string;
@@ -116,7 +116,7 @@ interface RealtimeItemLike {
   type: string;
   role?: "user" | "assistant" | "system";
   content?: string | ContentItem[];
-  transcript?: string;
+  transcript?: string | null;
   status?: string;
   [key: string]: unknown;
 }
@@ -138,7 +138,7 @@ interface RealtimeItemLike {
  * const text = getItemText(realtimeItem);
  * ```
  */
-export function getItemText(item: RealtimeItemLike): string {
+export function getItemText(item: RealtimeItemLike | import("@openai/agents/realtime").RealtimeItem): string {
   // Handle message type items
   if (item.type === "message") {
     // Case 1: content is an array (most common format per OpenAI API docs)
@@ -272,7 +272,8 @@ export function getItemText(item: RealtimeItemLike): string {
       // Check if this is a message in progress (status: "in_progress" or similar)
       // These are temporary states and don't need warnings per OpenAI API behavior
       const isInProgress =
-        item.status === "in_progress" || item.status === "pending";
+        "status" in item &&
+        (item.status === "in_progress" || item.status === "incomplete");
 
       // Only warn if this is a completed message without text
       // Skip warnings for in-progress messages or messages without content
@@ -310,7 +311,7 @@ export function getItemText(item: RealtimeItemLike): string {
               content: item.content,
               role: item.role,
               type: item.type,
-              status: item.status,
+              ...("status" in item ? { status: item.status } : {}),
             }
           );
         }

@@ -1,0 +1,29 @@
+# voice-agent Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-01-03
+
+## Active Technologies
+
+- TypeScript 5 + Next.js 15.5.6, React 19.1.0, Tailwind CSS v4, shadcn/ui (Radix UI), @openai/agents 0.1.10 (001-digital-agency-ui)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+npm test && npm run lint
+
+## Code Style
+
+TypeScript 5: Follow standard conventions
+
+## Recent Changes
+
+- 001-digital-agency-ui: Added TypeScript 5 + Next.js 15.5.6, React 19.1.0, Tailwind CSS v4, shadcn/ui (Radix UI), @openai/agents 0.1.10
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

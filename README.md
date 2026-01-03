@@ -7,9 +7,10 @@ A minimalistic web interface for OpenAI's GPT Realtime API, featuring real-time 
 - 🎤 **Real-time Voice Conversations** - Natural voice interaction with AI using OpenAI Realtime API
 - 🔒 **Client-side API Key Management** - Direct ephemeral token generation
 - 📝 **Live Transcript** - Real-time conversation display with history
-- 🎨 **Modern UI** - Built with shadcn/ui and Tailwind CSS
-- 🌙 **Dark Mode Support** - Automatic theme switching with next-themes
-- 📱 **Responsive Design** - Works on desktop and mobile
+- 🎨 **Modern UI** - Built with shadcn/ui and Tailwind CSS, styled with Digital Agency Design System v2.10.0
+- 🌙 **Dark Mode Support** - Automatic theme switching with next-themes, WCAG AA compliant
+- 📱 **Responsive Design** - Works on desktop and mobile with design system breakpoints
+- ♿ **Accessibility** - WCAG AA compliant with proper contrast ratios and keyboard navigation
 - ⚙️ **Customizable System Prompts** - Edit AI behavior and personality with live updates
 - 🗑️ **Conversation Management** - Clear history and toggle visibility
 - 🔊 **System Audio Capture** - Capture audio from Zoom, Teams, and other apps via browser screen sharing
@@ -24,8 +25,8 @@ A minimalistic web interface for OpenAI's GPT Realtime API, featuring real-time 
 - **Next.js 15.5.6** - React framework with App Router
 - **React 19.1.0** - Latest React with concurrent features
 - **TypeScript 5** - Type-safe development
-- **Tailwind CSS v4** - Utility-first styling
-- **shadcn/ui** - Accessible UI components
+- **Tailwind CSS v4** - Utility-first styling with Digital Agency Design System v2.10.0
+- **shadcn/ui** - Accessible UI components styled with Digital Agency Design System
 - **OpenAI Agents SDK v0.1.10** - Realtime API integration
 - **Radix UI** - Headless UI primitives
 - **Lucide React** - Beautiful icons
@@ -95,19 +96,28 @@ Capture audio from apps like Zoom, Teams, Discord, and more:
 
 ### UI Components
 
-- **Card** - Main container with gradient background
-- **Button** - Connect/disconnect with loading states
-- **Badge** - Connection status indicator
-- **ScrollArea** - Transcript display with auto-scroll
-- **Dialog** - System prompt editor with tips
-- **Alert** - Error messages and notifications
-- **Textarea** - Multi-line system prompt input
+All UI components are styled according to the **Digital Agency Design System v2.10.0** specifications:
+
+- **Button** - Connect/disconnect with loading states, multiple variants (default, destructive, outline, secondary, ghost, link)
+- **Card** - Main container with design system colors, spacing, and shadows
+- **Dialog** - System prompt editor with design system overlay and content styling
+- **Input/Select/Textarea** - Form components with design system colors, typography, and focus indicators
+- **Alert** - Error messages and notifications with semantic color variants (success, error, warning, info)
+- **Badge** - Connection status indicator with design system color variants
+- **Progress** - Progress indicators with design system colors
+- **ScrollArea** - Transcript display with auto-scroll and design system styling
+- **Checkbox** - Form controls with design system colors and focus indicators
+
+All components support both light and dark themes with WCAG AA compliant contrast ratios.
 
 ### Key Features
 
 - **Type Safety** - Full TypeScript coverage with strict mode
 - **Error Handling** - Comprehensive error recovery and user feedback
-- **Accessibility** - ARIA labels, keyboard navigation, screen reader support
+- **Accessibility** - WCAG AA compliant with proper contrast ratios (4.5:1 for normal text, 3:1 for large text), ARIA labels, keyboard navigation, screen reader support
+- **Design System** - Fully compliant with Digital Agency Design System v2.10.0, including colors, typography, spacing, and component specifications
+- **Theme Support** - Light and dark themes with design system colors, both WCAG AA compliant
+- **Responsive Design** - Design system breakpoints (mobile: 797px, tablet: 1024px, desktop: 1280px, 1440px, 1920px)
 - **Performance** - Optimized re-renders and memory management
 - **Security** - Client-side API key management (development mode)
 

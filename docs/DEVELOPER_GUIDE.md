@@ -742,9 +742,97 @@ const applyPreset = (presetKey: string) => {
 };
 ```
 
+### Design System
+
+The application follows the **Digital Agency Design System v2.10.0** (デジタル庁デザインシステム). All UI components are styled according to design system specifications.
+
+#### Design Tokens
+
+Design tokens are defined in `src/app/globals.css` as CSS custom properties:
+
+**Colors**:
+- Use CSS variables: `var(--primary)`, `var(--background)`, `var(--foreground)`, etc.
+- Light and dark theme variants are defined in `:root` and `.dark` selectors
+- All color combinations meet WCAG AA contrast requirements
+
+**Typography**:
+- Font sizes: `var(--font-size-std-16)`, `var(--font-size-std-18)`, etc.
+- Line heights: `var(--line-height-std-170)`, etc.
+- Font weights: `var(--font-weight-normal)`, `var(--font-weight-bold)`
+
+**Spacing**:
+- Base unit: 16px (1rem)
+- Use Tailwind spacing utilities: `p-4`, `gap-6`, etc.
+
+**Shadows**:
+- Elevation levels: `var(--shadow-1)` through `var(--shadow-8)`
+
+#### Using Design System in Components
+
+**Example: Button Component**
+
+```typescript
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 rounded text-base font-normal",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-[#264AF4]",
+        destructive: "bg-destructive text-white hover:bg-[#CE0000]",
+        // ... other variants
+      },
+      size: {
+        default: "min-h-[44px] py-3 px-6 rounded-[4px]",
+        // ... other sizes
+      },
+    },
+  }
+)
+```
+
+**Key Principles**:
+1. Use CSS variables for colors: `bg-primary`, `text-foreground`
+2. Follow design system spacing: `p-4`, `gap-6`, `rounded-[4px]`
+3. Maintain minimum touch target: `min-h-[44px]`
+4. Use design system typography: `text-base`, `font-normal`
+5. Apply focus indicators: `focus-visible:outline-2 focus-visible:outline-primary`
+
+#### Theme Support
+
+Components automatically support light and dark themes through CSS variables:
+
+```typescript
+// Light theme (default)
+<div className="bg-background text-foreground">
+
+// Dark theme (automatic via .dark class)
+// Same classes work in both themes
+```
+
+#### Accessibility
+
+- All color combinations meet WCAG AA requirements (4.5:1 for normal text, 3:1 for large text)
+- Focus indicators use 2px solid outline with primary color
+- Minimum touch target size: 44px × 44px
+- Proper ARIA labels and semantic HTML
+
+#### Responsive Design
+
+Follow design system breakpoints:
+- Mobile: up to 797px
+- Tablet: 797px - 1024px
+- Desktop: 1024px+
+
+Use Tailwind responsive utilities:
+```typescript
+<div className="p-4 sm:p-6 lg:p-8">
+```
+
 ### Styling with Tailwind
 
-The project uses **Tailwind CSS v4**. Example patterns:
+The project uses **Tailwind CSS v4** with Digital Agency Design System integration. Example patterns:
 
 ```tsx
 // Standard spacing

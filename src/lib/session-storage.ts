@@ -80,6 +80,7 @@ function validateHistoryItem(item: RealtimeItem): RealtimeItem | null {
   // Check if this is an in_progress message (needed for validation logic)
   // Per OpenAI API: in_progress messages may have empty content while being generated
   const isInProgress = isRealtimeMessageItem(item) && 
+    "status" in item &&
     (item.status === "in_progress" || item.status === "incomplete");
   
   // For message items, validate content structure per official documentation
@@ -219,7 +220,7 @@ function validateHistoryItem(item: RealtimeItem): RealtimeItem | null {
           // Per OpenAI API: null audio causes "expected audio bytes, but got null" error
           // Also causes "Missing required parameter: 'item.content[0].audio'" error
           // Per OpenAI API: output_audio should not have text field, input_audio should not have text field
-          const sanitized = { ...contentItem };
+          const sanitized: Record<string, unknown> = { ...contentItem };
           
           // Remove type-incompatible fields based on content type
           // Per OpenAI API: each content type has specific required/optional fields
@@ -371,7 +372,7 @@ function validateHistoryItem(item: RealtimeItem): RealtimeItem | null {
               {
                 itemId: getItemId(item),
                 role: isRealtimeMessageItem(item) ? item.role : undefined,
-                status: isRealtimeMessageItem(item) ? item.status : undefined,
+                status: isRealtimeMessageItem(item) && "status" in item ? item.status : undefined,
               }
             );
           }
@@ -390,19 +391,19 @@ function validateHistoryItem(item: RealtimeItem): RealtimeItem | null {
             {
               itemId: getItemId(item),
               role: isRealtimeMessageItem(item) ? item.role : undefined,
-              status: isRealtimeMessageItem(item) ? item.status : undefined,
-              originalContentLength: item.content.length,
-              originalContent: item.content,
+              status: isRealtimeMessageItem(item) && "status" in item ? item.status : undefined,
+              originalContentLength: isRealtimeMessageItem(item) && Array.isArray(item.content) ? item.content.length : 0,
+              originalContent: isRealtimeMessageItem(item) ? item.content : undefined,
               // Log first content item details for debugging
-              firstContentItem: Array.isArray(item.content) && item.content.length > 0 
+              firstContentItem: isRealtimeMessageItem(item) && Array.isArray(item.content) && item.content.length > 0 
                 ? {
                     type: item.content[0]?.type,
-                    hasText: !!item.content[0]?.text,
-                    hasTranscript: !!item.content[0]?.transcript,
-                    hasAudio: !!item.content[0]?.audio,
-                    audioValue: item.content[0]?.audio,
-                    transcriptValue: item.content[0]?.transcript,
-                    textValue: item.content[0]?.text,
+                    hasText: "text" in (item.content[0] || {}) ? !!(item.content[0] as any).text : false,
+                    hasTranscript: "transcript" in (item.content[0] || {}) ? !!(item.content[0] as any).transcript : false,
+                    hasAudio: "audio" in (item.content[0] || {}) ? !!(item.content[0] as any).audio : false,
+                    audioValue: "audio" in (item.content[0] || {}) ? (item.content[0] as any).audio : undefined,
+                    transcriptValue: "transcript" in (item.content[0] || {}) ? (item.content[0] as any).transcript : undefined,
+                    textValue: "text" in (item.content[0] || {}) ? (item.content[0] as any).text : undefined,
                     fullItem: item.content[0],
                   }
                 : null,
@@ -416,14 +417,15 @@ function validateHistoryItem(item: RealtimeItem): RealtimeItem | null {
       return {
         ...item,
         content: validContent,
-      };
-    } else if (typeof item.content === "string") {
+      } as RealtimeItem;
+    } else if (isRealtimeMessageItem(item) && typeof item.content === "string") {
       // Content is a string - this is valid for some message types
       // Ensure it's not empty
-      if (item.content.trim().length === 0) {
+      const contentStr = item.content as string;
+      if (contentStr.trim().length === 0) {
         return null;
       }
-      return item;
+      return item as RealtimeItem;
     } else {
       // Content is neither array nor string - invalid
       if (process.env.NODE_ENV === "development") {
@@ -462,7 +464,7 @@ export function prepareHistoryForRestore(history: RealtimeItem[]): RealtimeItem[
     return [];
   }
 
-  return history
+  const validated = history
     .map(validateHistoryItem)
     .filter((item): item is RealtimeItem => {
       if (item === null) {
@@ -470,7 +472,7 @@ export function prepareHistoryForRestore(history: RealtimeItem[]): RealtimeItem[
       }
       
       // Filter out incomplete messages
-      if (isRealtimeMessageItem(item)) {
+      if (isRealtimeMessageItem(item) && "status" in item) {
         const status = item.status;
         if (status === "in_progress" || status === "incomplete") {
           return false;
@@ -482,8 +484,9 @@ export function prepareHistoryForRestore(history: RealtimeItem[]): RealtimeItem[
       }
       
       return true;
-    })
-    .map((item) => {
+    });
+  
+  return validated.map((item): RealtimeItem => {
       // Convert audio content to text content for restoration
       if (isRealtimeMessageItem(item) && Array.isArray(item.content)) {
         const convertedContent = item.content.map((contentItem) => {
@@ -526,7 +529,7 @@ export function prepareHistoryForRestore(history: RealtimeItem[]): RealtimeItem[
         return {
           ...item,
           content: convertedContent,
-        };
+        } as RealtimeItem;
       }
       
       return item;
@@ -560,7 +563,7 @@ export function validateHistory(history: RealtimeItem[]): RealtimeItem[] {
       // Filter out incomplete messages that should not be persisted or restored
       // Per OpenAI API: messages with in_progress or incomplete status are transient
       // and should not be passed to updateHistory() as they lack required content
-      if (isRealtimeMessageItem(item)) {
+      if (isRealtimeMessageItem(item) && "status" in item) {
         const status = item.status;
         if (status === "in_progress" || status === "incomplete") {
           if (process.env.NODE_ENV === "development") {

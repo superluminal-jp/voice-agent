@@ -259,9 +259,9 @@ export function ConversationHistory({
                     // Per OpenAI API: use type guard to safely access status property
                     const isInProgress =
                       isRealtimeMessageItem(item) &&
+                      "status" in item &&
                       (item.status === "in_progress" ||
-                        item.status === "incomplete" ||
-                        item.status === "pending");
+                        item.status === "incomplete");
 
                     // Log for debugging (only in development)
                     // Skip warnings for in-progress messages as they're temporary states
@@ -273,13 +273,14 @@ export function ConversationHistory({
                         // Only warn if this is a completed message without text
                         // Check if there's actual content that should have been extracted
                         const hasContent =
+                          isRealtimeMessageItem(item) &&
                           item.content &&
                           ((Array.isArray(item.content) &&
                             item.content.length > 0) ||
                             (typeof item.content === "string" &&
-                              item.content.trim().length > 0));
+                              (item.content as string).trim().length > 0));
 
-                        if (hasContent) {
+                        if (hasContent && isRealtimeMessageItem(item)) {
                           // Log detailed content structure for debugging
                           const detailedContent = item.content
                             ? Array.isArray(item.content)
@@ -296,10 +297,12 @@ export function ConversationHistory({
                                     ? c
                                     : {}),
                                 }))
-                              : {
+                              : typeof item.content === "string"
+                              ? {
                                   type: typeof item.content,
                                   value: item.content,
                                 }
+                              : null
                             : null;
                         }
                       }
